@@ -69,13 +69,6 @@ python scripts/run_experiment.py --command inspect --config configs/tracking_exp
 python scripts/run_experiment.py --command run --all-configs
 ```
 
-## GitHub Upload Notes
-
-- Local datasets, generated artifacts, and local Python runtimes are intentionally gitignored.
-- The clean repo should contain source code, configs, scripts, tests, and docs only.
-- Contributor workflow guidance lives in [CONTRIBUTING.md](CONTRIBUTING.md).
-- Team work segmentation lives in [docs/collaboration_plan.md](docs/collaboration_plan.md).
-
 ## Tracking Integration
 
 The repo now supports a local Big Data Bowl tracking branch through
