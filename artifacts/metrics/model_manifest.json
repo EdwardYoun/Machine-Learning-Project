@@ -1,0 +1,28 @@
+{
+  "models": {
+    "classification:completion:full:logistic_regression": "artifacts\\models\\classification_completion_full_logistic_regression.pkl",
+    "classification:completion:full:random_forest": "artifacts\\models\\classification_completion_full_random_forest.pkl",
+    "classification:completion:no_motion:logistic_regression": "artifacts\\models\\classification_completion_no_motion_logistic_regression.pkl",
+    "classification:completion:no_motion:random_forest": "artifacts\\models\\classification_completion_no_motion_random_forest.pkl",
+    "classification:completion:no_tracking_response:logistic_regression": "artifacts\\models\\classification_completion_no_tracking_response_logistic_regression.pkl",
+    "classification:completion:no_tracking_response:random_forest": "artifacts\\models\\classification_completion_no_tracking_response_random_forest.pkl",
+    "classification:explosive:full:logistic_regression": "artifacts\\models\\classification_explosive_full_logistic_regression.pkl",
+    "classification:explosive:full:random_forest": "artifacts\\models\\classification_explosive_full_random_forest.pkl",
+    "classification:explosive:no_motion:logistic_regression": "artifacts\\models\\classification_explosive_no_motion_logistic_regression.pkl",
+    "classification:explosive:no_motion:random_forest": "artifacts\\models\\classification_explosive_no_motion_random_forest.pkl",
+    "classification:explosive:no_tracking_response:logistic_regression": "artifacts\\models\\classification_explosive_no_tracking_response_logistic_regression.pkl",
+    "classification:explosive:no_tracking_response:random_forest": "artifacts\\models\\classification_explosive_no_tracking_response_random_forest.pkl",
+    "classification:success:full:logistic_regression": "artifacts\\models\\classification_success_full_logistic_regression.pkl",
+    "classification:success:full:random_forest": "artifacts\\models\\classification_success_full_random_forest.pkl",
+    "classification:success:no_motion:logistic_regression": "artifacts\\models\\classification_success_no_motion_logistic_regression.pkl",
+    "classification:success:no_motion:random_forest": "artifacts\\models\\classification_success_no_motion_random_forest.pkl",
+    "classification:success:no_tracking_response:logistic_regression": "artifacts\\models\\classification_success_no_tracking_response_logistic_regression.pkl",
+    "classification:success:no_tracking_response:random_forest": "artifacts\\models\\classification_success_no_tracking_response_random_forest.pkl",
+    "regression:epa:full:random_forest": "artifacts\\models\\regression_epa_full_random_forest.pkl",
+    "regression:epa:full:ridge_regression": "artifacts\\models\\regression_epa_full_ridge_regression.pkl",
+    "regression:epa:no_motion:random_forest": "artifacts\\models\\regression_epa_no_motion_random_forest.pkl",
+    "regression:epa:no_motion:ridge_regression": "artifacts\\models\\regression_epa_no_motion_ridge_regression.pkl",
+    "regression:epa:no_tracking_response:random_forest": "artifacts\\models\\regression_epa_no_tracking_response_random_forest.pkl",
+    "regression:epa:no_tracking_response:ridge_regression": "artifacts\\models\\regression_epa_no_tracking_response_ridge_regression.pkl"
+  }
+}

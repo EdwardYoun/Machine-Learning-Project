@@ -1,0 +1,5 @@
+task,target,model_name,feature_set,train_rows,test_rows,n_numeric_features,n_categorical_features,auroc,log_loss,brier_score,expected_calibration_error,predicted_positive_rate,rmse,mae,selection_metric
+classification,completion,logistic_regression,no_tracking_response,20693,20116,27,29,0.5970534490271642,1.3341325841890683,0.433757115147075,0.4323277938004358,0.09624179757407039,,,auroc
+classification,explosive,logistic_regression,no_tracking_response,20693,20116,27,29,0.6079514512713468,0.383098590427155,0.11373240707511464,0.17511583462177216,0.021724000795386757,,,auroc
+classification,success,logistic_regression,no_motion,20693,20116,37,18,0.5760182516674465,0.7343109371109714,0.2672777893589595,0.15282610303087976,0.011831378007556174,,,auroc
+regression,epa,ridge_regression,no_motion,20693,20116,37,18,,,,,,1.6912831312729848,1.1947282613471542,rmse

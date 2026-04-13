@@ -1,0 +1,116 @@
+project_name: "reading-the-defense"
+
+paths:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  artifacts_dir: "artifacts"
+
+data:
+  pbp_seasons: [2022, 2023, 2024, 2025]
+  ftn_seasons: [2022, 2023, 2024, 2025]
+  use_ftn_charting: true
+  season_type: "REG"
+
+features:
+  base_numeric:
+    - down
+    - ydstogo
+    - yardline_100
+    - game_seconds_remaining
+    - half_seconds_remaining
+    - score_differential
+    - posteam_timeouts_remaining
+    - defteam_timeouts_remaining
+  base_categorical:
+    - posteam
+    - defteam
+    - posteam_type
+    - shotgun
+    - no_huddle
+    - goal_to_go
+    - game_half
+    - roof
+    - surface
+    - div_game
+    - season
+    - qtr
+  ftn_numeric:
+    - n_blitzers
+    - n_pass_rushers
+    - n_offense_backfield
+    - n_defense_box
+  ftn_categorical:
+    - is_motion
+    - is_no_huddle
+    - is_play_action
+    - is_screen_pass
+    - is_rpo
+    - is_trick_play
+    - qb_location
+    - starting_hash
+  derived_numeric:
+    - score_margin_abs
+  derived_categorical:
+    - down_bucket
+    - distance_bucket
+    - field_zone
+    - score_state
+    - pressure_bucket
+    - box_bucket
+    - backfield_bucket
+    - clock_bucket
+  motion_related_columns:
+    - is_motion
+    - is_no_huddle
+    - is_play_action
+    - is_screen_pass
+    - is_rpo
+    - is_trick_play
+    - n_blitzers
+    - n_pass_rushers
+    - n_defense_box
+    - n_offense_backfield
+    - qb_location
+    - starting_hash
+    - pressure_bucket
+    - box_bucket
+    - backfield_bucket
+
+targets:
+  classification_targets:
+    - success
+    - explosive
+    - completion
+  regression_targets:
+    - epa
+  explosive_threshold: 20
+
+split:
+  train_seasons: [2022, 2023, 2024]
+  validation_seasons: []
+  test_seasons: [2025]
+
+models:
+  classification_models:
+    - logistic_regression
+    - random_forest
+    - gradient_boosting
+  regression_models:
+    - ridge_regression
+    - random_forest
+    - gradient_boosting
+  random_state: 42
+
+evaluation:
+  classification_threshold: 0.5
+  calibration_bins: 10
+  subgroup_columns:
+    - down_bucket
+    - distance_bucket
+    - field_zone
+    - pressure_bucket
+    - score_state
+    - qb_location
+    - starting_hash
+    - box_bucket
+  minimum_subgroup_size: 50

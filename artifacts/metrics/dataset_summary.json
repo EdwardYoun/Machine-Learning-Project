@@ -1,0 +1,18 @@
+{
+  "ftn_coverage_rate": 1.0,
+  "motion_rate": 0.4569580239653018,
+  "seasons": [
+    2023,
+    2024
+  ],
+  "target_rates": {
+    "completion": 0.5743095885711486,
+    "epa": 0.025226336957101855,
+    "explosive": 0.08194270871621456,
+    "success": 0.4506603935406405
+  },
+  "test_rows": 20116,
+  "total_rows": 40809,
+  "tracking_coverage_rate": 0.3491876791884143,
+  "train_rows": 20693
+}

@@ -1,0 +1,57 @@
+project_name: "reading-the-defense-tracking"
+
+paths:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  artifacts_dir: "artifacts"
+
+data:
+  pbp_seasons: [2023, 2024]
+  ftn_seasons: [2023, 2024]
+  use_ftn_charting: true
+  season_type: "REG"
+
+tracking:
+  enabled: true
+  input_globs:
+    - "train/input_*.csv"
+  input_files:
+    - "test_input.csv"
+  cache_file: "tracking_play_features_2023_2024_v2.parquet"
+
+split:
+  train_seasons: [2023]
+  validation_seasons: []
+  test_seasons: [2024]
+
+targets:
+  classification_targets:
+    - success
+    - explosive
+    - completion
+  regression_targets:
+    - epa
+  explosive_threshold: 20
+
+models:
+  classification_models:
+    - logistic_regression
+    - random_forest
+  regression_models:
+    - ridge_regression
+    - random_forest
+  random_state: 42
+
+evaluation:
+  classification_threshold: 0.5
+  calibration_bins: 10
+  subgroup_columns:
+    - down_bucket
+    - distance_bucket
+    - field_zone
+    - pressure_bucket
+    - score_state
+    - qb_location
+    - starting_hash
+    - box_bucket
+  minimum_subgroup_size: 25
