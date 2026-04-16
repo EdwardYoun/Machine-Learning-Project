@@ -158,6 +158,8 @@ def dataset_summary(
 def best_models(
     selection_metrics: pd.DataFrame,
     overall_metrics: pd.DataFrame | None = None,
+    classification_metric: str = "auroc",
+    regression_metric: str = "rmse",
 ) -> pd.DataFrame:
     if selection_metrics.empty:
         return pd.DataFrame()
@@ -173,8 +175,8 @@ def best_models(
             group_keys = (group_keys,)
         key_map = dict(zip(group_columns, group_keys))
         task = key_map["task"]
-        metric = "auroc" if task == "classification" else "rmse"
-        ascending = task == "regression"
+        metric = classification_metric if task == "classification" else regression_metric
+        ascending = metric in {"rmse", "mae", "log_loss", "brier_score", "expected_calibration_error"}
         candidate_group = group.dropna(subset=[metric]).sort_values(metric, ascending=ascending)
         if candidate_group.empty:
             continue
@@ -540,6 +542,7 @@ def defensive_reaction_overall(
                 pd.to_numeric(frame["has_tracking_data"], errors="coerce").fillna(0).mean()
             )
             row["tracking_is_sparse"] = row["tracking_coverage_rate"] < sparse_tracking_threshold
+            row["reportable"] = not row["tracking_is_sparse"]
             rows.append(row)
     return pd.DataFrame(rows)
 
@@ -582,6 +585,7 @@ def defensive_reaction_subgroups(
                     pd.to_numeric(frame["has_tracking_data"], errors="coerce").fillna(0).mean()
                 )
                 row["tracking_is_sparse"] = row["tracking_coverage_rate"] < sparse_tracking_threshold
+                row["reportable"] = not row["tracking_is_sparse"]
                 rows.append(row)
     return pd.DataFrame(rows)
 
@@ -696,8 +700,14 @@ def proposal_summary_markdown(
     if defensive_reaction_frame is not None and not defensive_reaction_frame.empty:
         lines.append("")
         lines.append("## Defensive Reaction Highlights")
-        highlight = defensive_reaction_frame.reindex(
-            defensive_reaction_frame["adjusted_effect"].abs().sort_values(ascending=False).index
+        reportable = defensive_reaction_frame.loc[
+            defensive_reaction_frame.get("reportable", True).astype(bool)
+        ]
+        highlight_source = reportable if not reportable.empty else defensive_reaction_frame
+        if reportable.empty:
+            lines.append("- Tracking coverage is sparse on the evaluated split, so defensive reaction results are directional only.")
+        highlight = highlight_source.reindex(
+            highlight_source["adjusted_effect"].abs().sort_values(ascending=False).index
         ).head(5)
         for _, row in highlight.iterrows():
             sparse_suffix = " (directional only)" if row.get("tracking_is_sparse") else ""

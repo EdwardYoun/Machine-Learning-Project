@@ -267,6 +267,8 @@ class EvaluationConfig:
         default_factory=lambda: [0.3, 0.4, 0.5, 0.6, 0.7]
     )
     threshold_selection_metric: str = "balanced_accuracy"
+    classification_selection_metric: str = "auroc"
+    regression_selection_metric: str = "rmse"
     calibration_bins: int = 10
     motion_effect_control_columns: list[str] = field(
         default_factory=lambda: ["down_bucket", "distance_bucket", "field_zone", "score_state"]
@@ -314,6 +316,15 @@ class ProjectConfig:
         valid_feature_sets = {"context_only", "context_plus_motion", "full"}
         valid_calibration_methods = {"none", "sigmoid", "isotonic"}
         valid_threshold_metrics = {"balanced_accuracy", "f1"}
+        valid_classification_selection_metrics = {
+            "auroc",
+            "balanced_accuracy",
+            "f1",
+            "log_loss",
+            "brier_score",
+            "expected_calibration_error",
+        }
+        valid_regression_selection_metrics = {"rmse", "mae"}
 
         overlap = set(self.split.train_seasons) & set(self.split.test_seasons)
         if overlap:
@@ -358,6 +369,18 @@ class ProjectConfig:
         if self.evaluation.threshold_selection_metric not in valid_threshold_metrics:
             raise ValueError(
                 f"Unknown threshold selection metric: {self.evaluation.threshold_selection_metric}"
+            )
+        if (
+            self.evaluation.classification_selection_metric
+            not in valid_classification_selection_metrics
+        ):
+            raise ValueError(
+                "Unknown classification selection metric: "
+                f"{self.evaluation.classification_selection_metric}"
+            )
+        if self.evaluation.regression_selection_metric not in valid_regression_selection_metrics:
+            raise ValueError(
+                f"Unknown regression selection metric: {self.evaluation.regression_selection_metric}"
             )
         if not self.evaluation.classification_threshold_grid:
             raise ValueError("classification_threshold_grid must not be empty.")
@@ -500,6 +523,12 @@ def load_config(path: str | Path) -> ProjectConfig:
             ),
             threshold_selection_metric=_value(
                 evaluation_data, "threshold_selection_metric", "balanced_accuracy"
+            ),
+            classification_selection_metric=_value(
+                evaluation_data, "classification_selection_metric", "auroc"
+            ),
+            regression_selection_metric=_value(
+                evaluation_data, "regression_selection_metric", "rmse"
             ),
             calibration_bins=_value(evaluation_data, "calibration_bins", 10),
             motion_effect_control_columns=_value(

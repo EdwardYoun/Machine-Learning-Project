@@ -66,6 +66,8 @@ evaluation:
   classification_threshold: 0.5
   classification_threshold_grid: [0.3, 0.4, 0.5, 0.6, 0.7]
   threshold_selection_metric: "balanced_accuracy"
+  classification_selection_metric: "balanced_accuracy"
+  regression_selection_metric: "rmse"
   calibration_bins: 10
   motion_effect_control_columns:
     - down_bucket

@@ -247,6 +247,7 @@ def _fit_and_predict(
     eval_frame: pd.DataFrame,
     target_column: str,
     random_state: int,
+    calibration_method: str = "none",
 ) -> tuple[Any, pd.Series]:
     if task == "classification":
         model = build_classification_model(
@@ -254,7 +255,7 @@ def _fit_and_predict(
             feature_columns.numeric,
             feature_columns.categorical,
             random_state,
-            calibration_method=config.models.classification_calibration_method,
+            calibration_method=calibration_method,
         )
     else:
         model = build_regression_model(
@@ -309,6 +310,8 @@ def _aggregate_selection_metrics(rows: list[dict[str, Any]]) -> pd.DataFrame:
         column
         for column in [
             "auroc",
+            "balanced_accuracy",
+            "f1",
             "log_loss",
             "brier_score",
             "expected_calibration_error",
@@ -332,6 +335,54 @@ def _aggregate_selection_metrics(rows: list[dict[str, Any]]) -> pd.DataFrame:
     )
     aggregated["dataset_split"] = "validation"
     return aggregated
+
+
+def _apply_threshold_selected_validation_metrics(
+    validation_metrics: pd.DataFrame,
+    validation_prediction_frames: list[pd.DataFrame],
+    threshold_lookup: dict[tuple[str, str, str, str, str], float],
+    config: ProjectConfig,
+) -> pd.DataFrame:
+    if validation_metrics.empty or not validation_prediction_frames:
+        return validation_metrics
+
+    updated = validation_metrics.copy()
+    combined_predictions = pd.concat(validation_prediction_frames, ignore_index=True)
+    for index, row in updated.iterrows():
+        if row["task"] != "classification":
+            continue
+        matching = combined_predictions.loc[
+            (combined_predictions["task"] == row["task"])
+            & (combined_predictions["target"] == row["target"])
+            & (combined_predictions["model_name"] == row["model_name"])
+            & (combined_predictions["feature_set"] == row["feature_set"])
+        ].copy()
+        if matching.empty:
+            continue
+        evaluation_slice = row["evaluation_slice"]
+        matching = _evaluation_slices(matching).get(evaluation_slice, pd.DataFrame())
+        if matching.empty:
+            continue
+        threshold = threshold_lookup.get(
+            (
+                row["task"],
+                row["target"],
+                row["model_name"],
+                row["feature_set"],
+                evaluation_slice,
+            ),
+            config.evaluation.classification_threshold,
+        )
+        metrics = classification_metrics(
+            matching["actual"].to_numpy(),
+            matching["prediction"].to_numpy(),
+            threshold=threshold,
+            bins=config.evaluation.calibration_bins,
+        )
+        for metric_name, metric_value in metrics.items():
+            updated.at[index, metric_name] = metric_value
+        updated.at[index, "selected_threshold"] = threshold
+    return updated
 
 
 def _selected_model_metrics(
@@ -412,6 +463,7 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                             eval_frame=fold_validation,
                             target_column=target_column,
                             random_state=config.models.random_state,
+                            calibration_method=config.models.classification_calibration_method,
                         )
                         validation_frame = _prediction_frame(
                             frame=fold_validation,
@@ -483,6 +535,7 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                         eval_frame=test_frame,
                         target_column=target_column,
                         random_state=config.models.random_state,
+                        calibration_method=config.models.classification_calibration_method,
                     )
                     prediction_frame = _prediction_frame(
                         frame=test_frame,
@@ -541,7 +594,16 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                         prediction_frame,
                         group_columns=config.evaluation.subgroup_columns,
                         task=task,
-                        threshold=config.evaluation.classification_threshold,
+                        threshold=threshold_lookup.get(
+                            (
+                                task,
+                                target_name,
+                                model_name,
+                                feature_set_name,
+                                "all",
+                            ),
+                            config.evaluation.classification_threshold,
+                        ),
                         bins=config.evaluation.calibration_bins,
                         minimum_size=config.evaluation.minimum_subgroup_size,
                     )
@@ -551,7 +613,16 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                                 slice_frame,
                                 group_columns=config.evaluation.subgroup_columns,
                                 task=task,
-                                threshold=config.evaluation.classification_threshold,
+                                threshold=threshold_lookup.get(
+                                    (
+                                        task,
+                                        target_name,
+                                        model_name,
+                                        feature_set_name,
+                                        evaluation_slice_name,
+                                    ),
+                                    config.evaluation.classification_threshold,
+                                ),
                                 bins=config.evaluation.calibration_bins,
                                 minimum_size=config.evaluation.minimum_subgroup_size,
                             )
@@ -597,6 +668,12 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                 on=["task", "target", "model_name", "feature_set", "evaluation_slice"],
                 how="left",
             )
+    validation_metrics = _apply_threshold_selected_validation_metrics(
+        validation_metrics,
+        validation_prediction_frames,
+        threshold_lookup,
+        config,
+    )
 
     target_columns = {
         **{
@@ -612,7 +689,12 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
     }
     season_summary_frame = season_summary(frame, target_columns)
     test_metrics = overall_metrics.loc[overall_metrics["dataset_split"] == "test"].copy()
-    best_models_frame = best_models(validation_metrics, overall_metrics=test_metrics)
+    best_models_frame = best_models(
+        validation_metrics,
+        overall_metrics=test_metrics,
+        classification_metric=config.evaluation.classification_selection_metric,
+        regression_metric=config.evaluation.regression_selection_metric,
+    )
     selected_models_frame = _selected_model_metrics(best_models_frame, test_metrics)
     motion_lift_frame = motion_lift_overall(test_metrics)
     motion_lift_subgroup_frame = motion_lift_subgroups(subgroup_metrics_frame)
@@ -645,9 +727,10 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                 dataset_split="validation",
             )
         )
+    non_empty_motion_effect_frames = [frame for frame in motion_effect_frames if not frame.empty]
     motion_effect_frame = (
-        pd.concat([frame for frame in motion_effect_frames if not frame.empty], ignore_index=True)
-        if motion_effect_frames
+        pd.concat(non_empty_motion_effect_frames, ignore_index=True)
+        if non_empty_motion_effect_frames
         else pd.DataFrame()
     )
 
@@ -678,9 +761,12 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                 dataset_split="validation",
             )
         )
+    non_empty_motion_effect_subgroup_frames = [
+        frame for frame in motion_effect_subgroup_frames if not frame.empty
+    ]
     motion_effect_subgroup_frame = (
-        pd.concat([frame for frame in motion_effect_subgroup_frames if not frame.empty], ignore_index=True)
-        if motion_effect_subgroup_frames
+        pd.concat(non_empty_motion_effect_subgroup_frames, ignore_index=True)
+        if non_empty_motion_effect_subgroup_frames
         else pd.DataFrame()
     )
 
@@ -711,9 +797,12 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                 sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
             )
         )
+    non_empty_defensive_reaction_frames = [
+        frame for frame in defensive_reaction_frames if not frame.empty
+    ]
     defensive_reaction_frame = (
-        pd.concat([frame for frame in defensive_reaction_frames if not frame.empty], ignore_index=True)
-        if defensive_reaction_frames
+        pd.concat(non_empty_defensive_reaction_frames, ignore_index=True)
+        if non_empty_defensive_reaction_frames
         else pd.DataFrame()
     )
 
@@ -746,9 +835,12 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                 sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
             )
         )
+    non_empty_defensive_reaction_subgroup_frames = [
+        frame for frame in defensive_reaction_subgroup_frames if not frame.empty
+    ]
     defensive_reaction_subgroup_frame = (
-        pd.concat([frame for frame in defensive_reaction_subgroup_frames if not frame.empty], ignore_index=True)
-        if defensive_reaction_subgroup_frames
+        pd.concat(non_empty_defensive_reaction_subgroup_frames, ignore_index=True)
+        if non_empty_defensive_reaction_subgroup_frames
         else pd.DataFrame()
     )
     dataset_summary_payload = dataset_summary(
