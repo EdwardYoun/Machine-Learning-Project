@@ -19,7 +19,17 @@ tracking:
     - "test_input.csv"
   cache_file: "tracking_play_features_2023_2024_v2.parquet"
 
+experiment:
+  mode: "balanced_research"
+  enable_motion_effect_analysis: true
+  enable_defensive_response_analysis: true
+  feature_sets:
+    - context_only
+    - context_plus_motion
+    - full
+
 split:
+  strategy: "explicit"
   train_seasons: [2023]
   validation_seasons: []
   test_seasons: [2024]
@@ -45,6 +55,14 @@ models:
 evaluation:
   classification_threshold: 0.5
   calibration_bins: 10
+  motion_effect_control_columns:
+    - down_bucket
+    - distance_bucket
+    - field_zone
+    - score_state
+  motion_effect_minimum_size: 50
+  defensive_response_minimum_size: 25
+  sparse_tracking_threshold: 0.25
   subgroup_columns:
     - down_bucket
     - distance_bucket

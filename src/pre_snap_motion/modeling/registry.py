@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (
     HistGradientBoostingClassifier,
@@ -91,7 +92,11 @@ def tree_preprocessor(
 
 
 def build_classification_model(
-    name: str, numeric_columns: list[str], categorical_columns: list[str], random_state: int
+    name: str,
+    numeric_columns: list[str],
+    categorical_columns: list[str],
+    random_state: int,
+    calibration_method: str = "none",
 ) -> Pipeline:
     if name == "logistic_regression":
         estimator = LogisticRegression(
@@ -119,7 +124,10 @@ def build_classification_model(
     else:
         raise ValueError(f"Unknown classification model: {name}")
 
-    return Pipeline(steps=[("preprocess", preprocessor), ("model", estimator)])
+    pipeline = Pipeline(steps=[("preprocess", preprocessor), ("model", estimator)])
+    if calibration_method != "none":
+        return CalibratedClassifierCV(estimator=pipeline, method=calibration_method, cv=3)
+    return pipeline
 
 
 def build_regression_model(

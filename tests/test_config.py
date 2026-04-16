@@ -21,3 +21,30 @@ def test_load_config_reads_quickstart_values() -> None:
     assert project_artifacts_dir(config).as_posix().endswith(
         "artifacts/reading-the-defense-quickstart"
     )
+
+
+def test_load_config_reads_v2_experiment_values() -> None:
+    config = load_config(Path("configs/motion_value_v2.yaml"))
+
+    assert config.experiment.mode == "balanced_research"
+    assert config.split.strategy == "rolling_origin"
+    assert config.split.rolling_min_train_seasons == 2
+    assert config.experiment.feature_sets == [
+        "context_only",
+        "context_plus_motion",
+        "full",
+    ]
+    assert config.evaluation.effect_bootstrap_samples == 200
+    assert config.models.classification_calibration_method == "sigmoid"
+    assert config.models.target_classification_models["success"] == [
+        "logistic_regression",
+        "gradient_boosting",
+    ]
+    assert config.evaluation.threshold_selection_metric == "balanced_accuracy"
+    assert config.comparison.primary_target == "completion"
+    assert config.comparison.rank_targets == [
+        "completion",
+        "explosive",
+        "success",
+        "epa",
+    ]

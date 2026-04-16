@@ -119,6 +119,16 @@ def join_tracking_features(
 
 def engineer_features(joined: pl.DataFrame, config: ProjectConfig) -> pl.DataFrame:
     expressions: list[pl.Expr] = []
+    motion_flag: pl.Expr | None = None
+
+    if "is_motion" in joined.columns:
+        motion_flag = (
+            pl.col("is_motion")
+            .fill_null(False)
+            .cast(pl.Boolean, strict=False)
+            .cast(pl.Int8)
+        )
+        expressions.append(motion_flag.alias("is_motion_flag"))
 
     if "score_differential" in joined.columns:
         expressions.extend(
@@ -140,6 +150,12 @@ def engineer_features(joined: pl.DataFrame, config: ProjectConfig) -> pl.DataFra
             .otherwise(pl.lit("late_down"))
             .alias("down_bucket")
         )
+        if motion_flag is not None:
+            expressions.append(
+                (motion_flag * (pl.col("down") >= 3).cast(pl.Int8)).alias(
+                    "late_down_motion_flag"
+                )
+            )
 
     if "ydstogo" in joined.columns:
         expressions.append(
@@ -160,6 +176,12 @@ def engineer_features(joined: pl.DataFrame, config: ProjectConfig) -> pl.DataFra
             .otherwise(pl.lit("backed_up"))
             .alias("field_zone")
         )
+        if motion_flag is not None:
+            expressions.append(
+                (motion_flag * (pl.col("yardline_100") <= 20).cast(pl.Int8)).alias(
+                    "red_zone_motion_flag"
+                )
+            )
 
     if "n_blitzers" in joined.columns:
         expressions.append(
@@ -219,6 +241,30 @@ def engineer_features(joined: pl.DataFrame, config: ProjectConfig) -> pl.DataFra
             pl.col("complete_pass").fill_null(0).cast(pl.Int8).alias("target_completion")
         )
 
+    if motion_flag is not None and "is_play_action" in joined.columns:
+        expressions.append(
+            (
+                motion_flag
+                * pl.col("is_play_action")
+                .fill_null(False)
+                .cast(pl.Boolean, strict=False)
+                .cast(pl.Int8)
+            ).alias("play_action_motion_flag")
+        )
+    if motion_flag is not None and "shotgun" in joined.columns:
+        expressions.append(
+            (
+                motion_flag
+                * (
+                    1
+                    - pl.col("shotgun")
+                    .fill_null(False)
+                    .cast(pl.Boolean, strict=False)
+                    .cast(pl.Int8)
+                )
+            ).alias("under_center_motion_flag")
+        )
+
     if "is_motion" in joined.columns:
         expressions.append(pl.col("is_motion").is_not_null().alias("has_ftn_charting"))
     if "tracking_frames" in joined.columns:
@@ -243,6 +289,7 @@ def _feature_columns(frame: pl.DataFrame, config: ProjectConfig) -> list[str]:
         + config.features.tracking_categorical
         + config.features.derived_numeric
         + config.features.derived_categorical
+        + config.features.motion_numeric
     )
     return _existing(frame.columns, desired)
 

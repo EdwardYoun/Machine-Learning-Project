@@ -9,11 +9,15 @@ import pandas as pd
 import polars as pl
 
 from pre_snap_motion.config import ProjectConfig
-from pre_snap_motion.data.splits import split_by_season
+from pre_snap_motion.data.splits import rolling_origin_validation_splits, split_frame
 from pre_snap_motion.evaluation.metrics import classification_metrics, regression_metrics
 from pre_snap_motion.evaluation.reporting import (
     best_models,
     dataset_summary,
+    defensive_reaction_overall,
+    defensive_reaction_subgroups,
+    motion_effect_overall,
+    motion_effect_subgroups,
     motion_lift_overall,
     motion_lift_subgroups,
     proposal_summary_markdown,
@@ -22,8 +26,7 @@ from pre_snap_motion.evaluation.reporting import (
     tracking_response_lift_overall,
     tracking_response_lift_subgroups,
 )
-from pre_snap_motion.io import write_frame, write_json, write_text
-from pre_snap_motion.io import project_artifacts_dir
+from pre_snap_motion.io import project_artifacts_dir, write_frame, write_json, write_text
 from pre_snap_motion.modeling.registry import (
     build_classification_model,
     build_regression_model,
@@ -62,7 +65,8 @@ def feature_catalog(config: ProjectConfig, columns: list[str]) -> FeatureCatalog
         config.features.base_numeric
         + config.features.ftn_numeric
         + config.features.tracking_numeric
-        + config.features.derived_numeric,
+        + config.features.derived_numeric
+        + config.features.motion_numeric,
     )
     categorical = _existing(
         columns,
@@ -77,35 +81,27 @@ def feature_catalog(config: ProjectConfig, columns: list[str]) -> FeatureCatalog
 def feature_sets(config: ProjectConfig, catalog: FeatureCatalog) -> dict[str, FeatureCatalog]:
     motion_columns = set(config.features.motion_related_columns)
     tracking_response_columns = set(config.features.tracking_response_columns)
-    no_motion_numeric = [column for column in catalog.numeric if column not in motion_columns]
-    no_motion_categorical = [
-        column for column in catalog.categorical if column not in motion_columns
-    ]
+
+    context_only = FeatureCatalog(
+        numeric=[column for column in catalog.numeric if column not in motion_columns],
+        categorical=[column for column in catalog.categorical if column not in motion_columns],
+    )
+    context_plus_motion = FeatureCatalog(
+        numeric=[column for column in catalog.numeric if column not in tracking_response_columns],
+        categorical=[
+            column for column in catalog.categorical if column not in tracking_response_columns
+        ],
+    )
     variants = {
+        "context_only": context_only,
+        "context_plus_motion": context_plus_motion,
         "full": catalog,
-        "no_motion": FeatureCatalog(
-            numeric=no_motion_numeric,
-            categorical=no_motion_categorical,
-        ),
     }
-    response_numeric = [
-        column for column in catalog.numeric if column in tracking_response_columns
-    ]
-    response_categorical = [
-        column for column in catalog.categorical if column in tracking_response_columns
-    ]
-    if response_numeric or response_categorical:
-        variants["no_tracking_response"] = FeatureCatalog(
-            numeric=[
-                column for column in catalog.numeric if column not in tracking_response_columns
-            ],
-            categorical=[
-                column
-                for column in catalog.categorical
-                if column not in tracking_response_columns
-            ],
-        )
-    return variants
+    return {
+        name: variants[name]
+        for name in config.experiment.feature_sets
+        if name in variants and variants[name].all_columns
+    }
 
 
 def _artifacts_dir(config: ProjectConfig, name: str) -> Path:
@@ -132,6 +128,16 @@ def _target_names(task: str, config: ProjectConfig) -> list[str]:
     return config.targets.regression_targets
 
 
+def _model_names_for_target(task: str, target_name: str, config: ProjectConfig) -> list[str]:
+    if task == "classification":
+        return config.models.target_classification_models.get(
+            target_name, config.models.classification_models
+        )
+    return config.models.target_regression_models.get(
+        target_name, config.models.regression_models
+    )
+
+
 def _prediction_frame(
     frame: pd.DataFrame,
     predictions: pd.Series,
@@ -140,6 +146,7 @@ def _prediction_frame(
     feature_set: str,
     task: str,
     target: str,
+    dataset_split: str,
     config: ProjectConfig,
 ) -> pd.DataFrame:
     columns = ["season"] + [
@@ -150,7 +157,7 @@ def _prediction_frame(
     columns.extend(
         [
             column
-            for column in ["has_ftn_charting", "has_tracking_data"]
+            for column in ["has_ftn_charting", "has_tracking_data", "is_motion_flag"]
             if column in frame.columns and column not in columns
         ]
     )
@@ -161,6 +168,7 @@ def _prediction_frame(
     output["feature_set"] = feature_set
     output["task"] = task
     output["target"] = target
+    output["dataset_split"] = dataset_split
     return output
 
 
@@ -180,21 +188,252 @@ def _evaluation_slices(prediction_frame: pd.DataFrame) -> dict[str, pd.DataFrame
     return slices
 
 
+def _metric_row(
+    evaluation_frame: pd.DataFrame,
+    task: str,
+    target_name: str,
+    model_name: str,
+    feature_set_name: str,
+    dataset_split: str,
+    feature_columns: FeatureCatalog,
+    threshold: float,
+    bins: int,
+    train_rows: int,
+    threshold_overrides: dict[str, float] | None = None,
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for evaluation_slice_name, slice_frame in _evaluation_slices(evaluation_frame).items():
+        slice_threshold = (
+            threshold_overrides.get(evaluation_slice_name, threshold)
+            if threshold_overrides is not None
+            else threshold
+        )
+        if task == "classification":
+            metrics = classification_metrics(
+                slice_frame["actual"].to_numpy(),
+                slice_frame["prediction"].to_numpy(),
+                threshold=slice_threshold,
+                bins=bins,
+            )
+        else:
+            metrics = regression_metrics(
+                slice_frame["actual"].to_numpy(),
+                slice_frame["prediction"].to_numpy(),
+            )
+
+        row: dict[str, Any] = {
+            "evaluation_slice": evaluation_slice_name,
+            "dataset_split": dataset_split,
+            "task": task,
+            "target": target_name,
+            "model_name": model_name,
+            "feature_set": feature_set_name,
+            "train_rows": train_rows,
+            "evaluation_rows": len(slice_frame),
+            "n_numeric_features": len(feature_columns.numeric),
+            "n_categorical_features": len(feature_columns.categorical),
+            "selected_threshold": slice_threshold if task == "classification" else None,
+        }
+        row.update(metrics)
+        rows.append(row)
+    return rows
+
+
+def _fit_and_predict(
+    task: str,
+    model_name: str,
+    feature_columns: FeatureCatalog,
+    train_frame: pd.DataFrame,
+    eval_frame: pd.DataFrame,
+    target_column: str,
+    random_state: int,
+    calibration_method: str = "none",
+) -> tuple[Any, pd.Series]:
+    if task == "classification":
+        model = build_classification_model(
+            model_name,
+            feature_columns.numeric,
+            feature_columns.categorical,
+            random_state,
+            calibration_method=calibration_method,
+        )
+    else:
+        model = build_regression_model(
+            model_name,
+            feature_columns.numeric,
+            feature_columns.categorical,
+            random_state,
+        )
+
+    X_train = train_frame.loc[:, feature_columns.all_columns]
+    y_train = train_frame[target_column]
+    X_eval = eval_frame.loc[:, feature_columns.all_columns]
+
+    model.fit(X_train, y_train)
+    if task == "classification":
+        predictions = pd.Series(model.predict_proba(X_eval)[:, 1], index=X_eval.index)
+    else:
+        predictions = pd.Series(model.predict(X_eval), index=X_eval.index)
+    return model, predictions
+
+
+def _select_threshold(
+    validation_predictions: pd.DataFrame,
+    thresholds: list[float],
+    metric_name: str,
+) -> float:
+    if validation_predictions.empty:
+        return 0.5
+    scored_thresholds: list[tuple[float, float]] = []
+    for threshold in thresholds:
+        metrics = classification_metrics(
+            validation_predictions["actual"].to_numpy(),
+            validation_predictions["prediction"].to_numpy(),
+            threshold=threshold,
+            bins=10,
+        )
+        metric_value = metrics.get(metric_name)
+        if metric_value is None:
+            continue
+        scored_thresholds.append((threshold, float(metric_value)))
+    if not scored_thresholds:
+        return 0.5
+    scored_thresholds.sort(key=lambda item: (item[1], -abs(item[0] - 0.5)), reverse=True)
+    return scored_thresholds[0][0]
+
+
+def _aggregate_selection_metrics(rows: list[dict[str, Any]]) -> pd.DataFrame:
+    if not rows:
+        return pd.DataFrame()
+    frame = pd.DataFrame(rows)
+    metric_columns = [
+        column
+        for column in [
+            "auroc",
+            "balanced_accuracy",
+            "f1",
+            "log_loss",
+            "brier_score",
+            "expected_calibration_error",
+            "predicted_positive_rate",
+            "rmse",
+            "mae",
+        ]
+        if column in frame.columns
+    ]
+    group_columns = [
+        "evaluation_slice",
+        "task",
+        "target",
+        "model_name",
+        "feature_set",
+    ]
+    aggregated = (
+        frame.groupby(group_columns, dropna=False)[metric_columns + ["evaluation_rows"]]
+        .mean(numeric_only=True)
+        .reset_index()
+    )
+    aggregated["dataset_split"] = "validation"
+    return aggregated
+
+
+def _apply_threshold_selected_validation_metrics(
+    validation_metrics: pd.DataFrame,
+    validation_prediction_frames: list[pd.DataFrame],
+    threshold_lookup: dict[tuple[str, str, str, str, str], float],
+    config: ProjectConfig,
+) -> pd.DataFrame:
+    if validation_metrics.empty or not validation_prediction_frames:
+        return validation_metrics
+
+    updated = validation_metrics.copy()
+    combined_predictions = pd.concat(validation_prediction_frames, ignore_index=True)
+    for index, row in updated.iterrows():
+        if row["task"] != "classification":
+            continue
+        matching = combined_predictions.loc[
+            (combined_predictions["task"] == row["task"])
+            & (combined_predictions["target"] == row["target"])
+            & (combined_predictions["model_name"] == row["model_name"])
+            & (combined_predictions["feature_set"] == row["feature_set"])
+        ].copy()
+        if matching.empty:
+            continue
+        evaluation_slice = row["evaluation_slice"]
+        matching = _evaluation_slices(matching).get(evaluation_slice, pd.DataFrame())
+        if matching.empty:
+            continue
+        threshold = threshold_lookup.get(
+            (
+                row["task"],
+                row["target"],
+                row["model_name"],
+                row["feature_set"],
+                evaluation_slice,
+            ),
+            config.evaluation.classification_threshold,
+        )
+        metrics = classification_metrics(
+            matching["actual"].to_numpy(),
+            matching["prediction"].to_numpy(),
+            threshold=threshold,
+            bins=config.evaluation.calibration_bins,
+        )
+        for metric_name, metric_value in metrics.items():
+            updated.at[index, metric_name] = metric_value
+        updated.at[index, "selected_threshold"] = threshold
+    return updated
+
+
+def _selected_model_metrics(
+    best_models_frame: pd.DataFrame,
+    overall_metrics: pd.DataFrame,
+) -> pd.DataFrame:
+    if best_models_frame.empty or overall_metrics.empty:
+        return pd.DataFrame()
+    rows: list[dict[str, Any]] = []
+    for _, best_row in best_models_frame.iterrows():
+        matching = overall_metrics.copy()
+        for column in ["evaluation_slice", "task", "target", "model_name", "feature_set"]:
+            if column in best_row.index and column in matching.columns:
+                matching = matching.loc[matching[column] == best_row[column]]
+        if matching.empty:
+            continue
+        row = matching.iloc[0].to_dict()
+        row["selection_metric"] = best_row["selection_metric"]
+        row["validation_selection_value"] = best_row[best_row["selection_metric"]]
+        if "selected_threshold" in best_row:
+            row["selected_threshold"] = best_row["selected_threshold"]
+        rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path]:
     frame = dataset.to_pandas()
-    split = split_by_season(frame, config.split)
+    split = split_frame(frame, config.split)
+    validation_folds = rolling_origin_validation_splits(frame, config.split)
+
     catalog = feature_catalog(config, frame.columns.tolist())
     feature_variants = feature_sets(config, catalog)
 
     overall_rows: list[dict[str, Any]] = []
     subgroup_frames: list[pd.DataFrame] = []
+    selection_rows: list[dict[str, Any]] = []
     model_manifest: dict[str, str] = {}
 
-    for task, model_names in (
+    test_train_frame = split.train.copy()
+    if split.validation is not None:
+        test_train_frame = pd.concat([test_train_frame, split.validation], ignore_index=True)
+
+    threshold_lookup: dict[tuple[str, str, str, str, str], float] = {}
+    validation_prediction_frames: list[pd.DataFrame] = []
+
+    for task, default_model_names in (
         ("classification", config.models.classification_models),
         ("regression", config.models.regression_models),
     ):
         for target_name in _target_names(task, config):
+            model_names = _model_names_for_target(task, target_name, config)
             target_column = _target_column(task, target_name)
             if target_column not in frame.columns:
                 continue
@@ -208,89 +447,189 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                 if not feature_columns.all_columns:
                     continue
 
-                X_train = train_frame.loc[:, feature_columns.all_columns]
-                X_test = test_frame.loc[:, feature_columns.all_columns]
-                y_train = train_frame[target_column]
-                y_test = test_frame[target_column]
-
                 for model_name in model_names:
+                    for fold_index, fold in enumerate(validation_folds):
+                        if fold.validation is None:
+                            continue
+                        fold_train = fold.train.dropna(subset=[target_column]).copy()
+                        fold_validation = fold.validation.dropna(subset=[target_column]).copy()
+                        if fold_train.empty or fold_validation.empty:
+                            continue
+                        _, validation_predictions = _fit_and_predict(
+                            task=task,
+                            model_name=model_name,
+                            feature_columns=feature_columns,
+                            train_frame=fold_train,
+                            eval_frame=fold_validation,
+                            target_column=target_column,
+                            random_state=config.models.random_state,
+                            calibration_method=config.models.classification_calibration_method,
+                        )
+                        validation_frame = _prediction_frame(
+                            frame=fold_validation,
+                            predictions=validation_predictions,
+                            target_column=target_column,
+                            model_name=model_name,
+                            feature_set=feature_set_name,
+                            task=task,
+                            target=target_name,
+                            dataset_split=f"validation_fold_{fold_index + 1}",
+                            config=config,
+                        )
+                        validation_prediction_frames.append(validation_frame)
+                        selection_rows.extend(
+                            _metric_row(
+                                validation_frame,
+                                task=task,
+                                target_name=target_name,
+                                model_name=model_name,
+                                feature_set_name=feature_set_name,
+                                dataset_split="validation",
+                                feature_columns=feature_columns,
+                                threshold=config.evaluation.classification_threshold,
+                                bins=config.evaluation.calibration_bins,
+                                train_rows=len(fold_train),
+                            )
+                        )
+
                     if task == "classification":
-                        model = build_classification_model(
-                            model_name,
-                            feature_columns.numeric,
-                            feature_columns.categorical,
-                            config.models.random_state,
-                        )
-                    else:
-                        model = build_regression_model(
-                            model_name,
-                            feature_columns.numeric,
-                            feature_columns.categorical,
-                            config.models.random_state,
-                        )
+                        scoped_validation = pd.concat(
+                            [
+                                frame
+                                for frame in validation_prediction_frames
+                                if (
+                                    frame["task"].iloc[0] == task
+                                    and frame["target"].iloc[0] == target_name
+                                    and frame["model_name"].iloc[0] == model_name
+                                    and frame["feature_set"].iloc[0] == feature_set_name
+                                )
+                            ],
+                            ignore_index=True,
+                        ) if validation_prediction_frames else pd.DataFrame()
+                        if not scoped_validation.empty:
+                            for evaluation_slice_name, slice_frame in _evaluation_slices(
+                                scoped_validation
+                            ).items():
+                                threshold_lookup[
+                                    (
+                                        task,
+                                        target_name,
+                                        model_name,
+                                        feature_set_name,
+                                        evaluation_slice_name,
+                                    )
+                                ] = _select_threshold(
+                                    validation_predictions=slice_frame,
+                                    thresholds=config.evaluation.classification_threshold_grid,
+                                    metric_name=config.evaluation.threshold_selection_metric,
+                                )
 
-                    model.fit(X_train, y_train)
-
-                    if task == "classification":
-                        predictions = pd.Series(
-                            model.predict_proba(X_test)[:, 1],
-                            index=X_test.index,
-                        )
-                    else:
-                        predictions = pd.Series(model.predict(X_test), index=X_test.index)
-
+                    final_train = test_train_frame.dropna(subset=[target_column]).copy()
+                    if final_train.empty:
+                        continue
+                    model, test_predictions = _fit_and_predict(
+                        task=task,
+                        model_name=model_name,
+                        feature_columns=feature_columns,
+                        train_frame=final_train,
+                        eval_frame=test_frame,
+                        target_column=target_column,
+                        random_state=config.models.random_state,
+                        calibration_method=config.models.classification_calibration_method,
+                    )
                     prediction_frame = _prediction_frame(
                         frame=test_frame,
-                        predictions=predictions,
+                        predictions=test_predictions,
                         target_column=target_column,
                         model_name=model_name,
                         feature_set=feature_set_name,
                         task=task,
                         target=target_name,
+                        dataset_split="test",
                         config=config,
                     )
-                    for evaluation_slice_name, evaluation_frame in _evaluation_slices(
-                        prediction_frame
-                    ).items():
-                        if task == "classification":
-                            metrics = classification_metrics(
-                                evaluation_frame["actual"].to_numpy(),
-                                evaluation_frame["prediction"].to_numpy(),
-                                threshold=config.evaluation.classification_threshold,
-                                bins=config.evaluation.calibration_bins,
-                            )
-                        else:
-                            metrics = regression_metrics(
-                                evaluation_frame["actual"].to_numpy(),
-                                evaluation_frame["prediction"].to_numpy(),
-                            )
 
-                        overall_row: dict[str, Any] = {
-                            "evaluation_slice": evaluation_slice_name,
-                            "task": task,
-                            "target": target_name,
-                            "model_name": model_name,
-                            "feature_set": feature_set_name,
-                            "train_rows": len(train_frame),
-                            "test_rows": len(test_frame),
-                            "evaluation_rows": len(evaluation_frame),
-                            "n_numeric_features": len(feature_columns.numeric),
-                            "n_categorical_features": len(feature_columns.categorical),
-                        }
-                        overall_row.update(metrics)
-                        overall_rows.append(overall_row)
-
-                        subgroup_frame = subgroup_metrics(
-                            evaluation_frame,
-                            group_columns=config.evaluation.subgroup_columns,
+                    overall_rows.extend(
+                        _metric_row(
+                            prediction_frame,
                             task=task,
-                            threshold=config.evaluation.classification_threshold,
+                            target_name=target_name,
+                            model_name=model_name,
+                            feature_set_name=feature_set_name,
+                            dataset_split="test",
+                            feature_columns=feature_columns,
+                            threshold=threshold_lookup.get(
+                                (
+                                    task,
+                                    target_name,
+                                    model_name,
+                                    feature_set_name,
+                                    "all",
+                                ),
+                                config.evaluation.classification_threshold,
+                            ),
                             bins=config.evaluation.calibration_bins,
-                            minimum_size=config.evaluation.minimum_subgroup_size,
+                            train_rows=len(final_train),
+                            threshold_overrides={
+                                evaluation_slice_name: threshold
+                                for (
+                                    lookup_task,
+                                    lookup_target,
+                                    lookup_model,
+                                    lookup_feature_set,
+                                    evaluation_slice_name,
+                                ), threshold in threshold_lookup.items()
+                                if (
+                                    lookup_task,
+                                    lookup_target,
+                                    lookup_model,
+                                    lookup_feature_set,
+                                )
+                                == (task, target_name, model_name, feature_set_name)
+                            },
                         )
-                        if not subgroup_frame.empty:
-                            subgroup_frame["evaluation_slice"] = evaluation_slice_name
-                            subgroup_frames.append(subgroup_frame)
+                    )
+
+                    subgroup_frame = subgroup_metrics(
+                        prediction_frame,
+                        group_columns=config.evaluation.subgroup_columns,
+                        task=task,
+                        threshold=threshold_lookup.get(
+                            (
+                                task,
+                                target_name,
+                                model_name,
+                                feature_set_name,
+                                "all",
+                            ),
+                            config.evaluation.classification_threshold,
+                        ),
+                        bins=config.evaluation.calibration_bins,
+                        minimum_size=config.evaluation.minimum_subgroup_size,
+                    )
+                    if not subgroup_frame.empty:
+                        for evaluation_slice_name, slice_frame in _evaluation_slices(prediction_frame).items():
+                            scoped = subgroup_metrics(
+                                slice_frame,
+                                group_columns=config.evaluation.subgroup_columns,
+                                task=task,
+                                threshold=threshold_lookup.get(
+                                    (
+                                        task,
+                                        target_name,
+                                        model_name,
+                                        feature_set_name,
+                                        evaluation_slice_name,
+                                    ),
+                                    config.evaluation.classification_threshold,
+                                ),
+                                bins=config.evaluation.calibration_bins,
+                                minimum_size=config.evaluation.minimum_subgroup_size,
+                            )
+                            if scoped.empty:
+                                continue
+                            scoped["evaluation_slice"] = evaluation_slice_name
+                            subgroup_frames.append(scoped)
 
                     model_key = f"{task}:{target_name}:{feature_set_name}:{model_name}"
                     model_path = _save_model(
@@ -300,17 +639,42 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
                     )
                     model_manifest[model_key] = str(model_path)
 
-    if overall_rows:
-        overall_metrics = pd.DataFrame(overall_rows).sort_values(
-            by=["evaluation_slice", "task", "target", "feature_set", "model_name"]
-        )
-    else:
-        overall_metrics = pd.DataFrame()
+    overall_metrics = pd.DataFrame(overall_rows).sort_values(
+        by=["dataset_split", "evaluation_slice", "task", "target", "feature_set", "model_name"]
+    ) if overall_rows else pd.DataFrame()
     subgroup_metrics_frame = (
-        pd.concat(subgroup_frames, ignore_index=True)
-        if subgroup_frames
-        else pd.DataFrame()
+        pd.concat(subgroup_frames, ignore_index=True) if subgroup_frames else pd.DataFrame()
     )
+    validation_metrics = _aggregate_selection_metrics(selection_rows)
+    if validation_metrics.empty:
+        validation_metrics = overall_metrics.loc[overall_metrics["dataset_split"] == "test"].copy()
+    if not validation_metrics.empty:
+        threshold_rows: list[dict[str, Any]] = []
+        for key, threshold in threshold_lookup.items():
+            task, target_name, model_name, feature_set_name, evaluation_slice_name = key
+            threshold_rows.append(
+                {
+                    "task": task,
+                    "target": target_name,
+                    "model_name": model_name,
+                    "feature_set": feature_set_name,
+                    "evaluation_slice": evaluation_slice_name,
+                    "selected_threshold": threshold,
+                }
+            )
+        if threshold_rows:
+            validation_metrics = validation_metrics.merge(
+                pd.DataFrame(threshold_rows),
+                on=["task", "target", "model_name", "feature_set", "evaluation_slice"],
+                how="left",
+            )
+    validation_metrics = _apply_threshold_selected_validation_metrics(
+        validation_metrics,
+        validation_prediction_frames,
+        threshold_lookup,
+        config,
+    )
+
     target_columns = {
         **{
             target_name: CLASSIFICATION_TARGET_MAP[target_name]
@@ -324,29 +688,185 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
         },
     }
     season_summary_frame = season_summary(frame, target_columns)
-    best_models_frame = best_models(overall_metrics)
-    motion_lift_frame = motion_lift_overall(overall_metrics)
+    test_metrics = overall_metrics.loc[overall_metrics["dataset_split"] == "test"].copy()
+    best_models_frame = best_models(
+        validation_metrics,
+        overall_metrics=test_metrics,
+        classification_metric=config.evaluation.classification_selection_metric,
+        regression_metric=config.evaluation.regression_selection_metric,
+    )
+    selected_models_frame = _selected_model_metrics(best_models_frame, test_metrics)
+    motion_lift_frame = motion_lift_overall(test_metrics)
     motion_lift_subgroup_frame = motion_lift_subgroups(subgroup_metrics_frame)
-    tracking_response_lift_frame = tracking_response_lift_overall(overall_metrics)
+    tracking_response_lift_frame = tracking_response_lift_overall(test_metrics)
     tracking_response_lift_subgroup_frame = tracking_response_lift_subgroups(
         subgroup_metrics_frame
+    )
+    motion_effect_frames = [
+        motion_effect_overall(
+        frame=split.test,
+        target_columns=target_columns,
+        control_columns=config.evaluation.motion_effect_control_columns,
+        minimum_size=config.evaluation.motion_effect_minimum_size,
+        confidence_level=config.evaluation.effect_confidence_level,
+        bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+        random_state=config.evaluation.effect_random_state,
+        dataset_split="test",
+        )
+    ]
+    if split.validation is not None and not split.validation.empty:
+        motion_effect_frames.append(
+            motion_effect_overall(
+                frame=split.validation,
+                target_columns=target_columns,
+                control_columns=config.evaluation.motion_effect_control_columns,
+                minimum_size=config.evaluation.motion_effect_minimum_size,
+                confidence_level=config.evaluation.effect_confidence_level,
+                bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+                random_state=config.evaluation.effect_random_state,
+                dataset_split="validation",
+            )
+        )
+    non_empty_motion_effect_frames = [frame for frame in motion_effect_frames if not frame.empty]
+    motion_effect_frame = (
+        pd.concat(non_empty_motion_effect_frames, ignore_index=True)
+        if non_empty_motion_effect_frames
+        else pd.DataFrame()
+    )
+
+    motion_effect_subgroup_frames = [
+        motion_effect_subgroups(
+        frame=split.test,
+        target_columns=target_columns,
+        control_columns=config.evaluation.motion_effect_control_columns,
+        subgroup_columns=config.evaluation.subgroup_columns,
+        minimum_size=config.evaluation.motion_effect_minimum_size,
+        confidence_level=config.evaluation.effect_confidence_level,
+        bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+        random_state=config.evaluation.effect_random_state,
+        dataset_split="test",
+        )
+    ]
+    if split.validation is not None and not split.validation.empty:
+        motion_effect_subgroup_frames.append(
+            motion_effect_subgroups(
+                frame=split.validation,
+                target_columns=target_columns,
+                control_columns=config.evaluation.motion_effect_control_columns,
+                subgroup_columns=config.evaluation.subgroup_columns,
+                minimum_size=config.evaluation.motion_effect_minimum_size,
+                confidence_level=config.evaluation.effect_confidence_level,
+                bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+                random_state=config.evaluation.effect_random_state,
+                dataset_split="validation",
+            )
+        )
+    non_empty_motion_effect_subgroup_frames = [
+        frame for frame in motion_effect_subgroup_frames if not frame.empty
+    ]
+    motion_effect_subgroup_frame = (
+        pd.concat(non_empty_motion_effect_subgroup_frames, ignore_index=True)
+        if non_empty_motion_effect_subgroup_frames
+        else pd.DataFrame()
+    )
+
+    defensive_reaction_frames = [
+        defensive_reaction_overall(
+        frame=split.test,
+        response_columns=config.features.tracking_response_columns,
+        control_columns=config.evaluation.motion_effect_control_columns,
+        minimum_size=config.evaluation.defensive_response_minimum_size,
+        confidence_level=config.evaluation.effect_confidence_level,
+        bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+        random_state=config.evaluation.effect_random_state,
+        dataset_split="test",
+        sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
+        )
+    ]
+    if split.validation is not None and not split.validation.empty:
+        defensive_reaction_frames.append(
+            defensive_reaction_overall(
+                frame=split.validation,
+                response_columns=config.features.tracking_response_columns,
+                control_columns=config.evaluation.motion_effect_control_columns,
+                minimum_size=config.evaluation.defensive_response_minimum_size,
+                confidence_level=config.evaluation.effect_confidence_level,
+                bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+                random_state=config.evaluation.effect_random_state,
+                dataset_split="validation",
+                sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
+            )
+        )
+    non_empty_defensive_reaction_frames = [
+        frame for frame in defensive_reaction_frames if not frame.empty
+    ]
+    defensive_reaction_frame = (
+        pd.concat(non_empty_defensive_reaction_frames, ignore_index=True)
+        if non_empty_defensive_reaction_frames
+        else pd.DataFrame()
+    )
+
+    defensive_reaction_subgroup_frames = [
+        defensive_reaction_subgroups(
+        frame=split.test,
+        response_columns=config.features.tracking_response_columns,
+        control_columns=config.evaluation.motion_effect_control_columns,
+        subgroup_columns=config.evaluation.subgroup_columns,
+        minimum_size=config.evaluation.defensive_response_minimum_size,
+        confidence_level=config.evaluation.effect_confidence_level,
+        bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+        random_state=config.evaluation.effect_random_state,
+        dataset_split="test",
+        sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
+        )
+    ]
+    if split.validation is not None and not split.validation.empty:
+        defensive_reaction_subgroup_frames.append(
+            defensive_reaction_subgroups(
+                frame=split.validation,
+                response_columns=config.features.tracking_response_columns,
+                control_columns=config.evaluation.motion_effect_control_columns,
+                subgroup_columns=config.evaluation.subgroup_columns,
+                minimum_size=config.evaluation.defensive_response_minimum_size,
+                confidence_level=config.evaluation.effect_confidence_level,
+                bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+                random_state=config.evaluation.effect_random_state,
+                dataset_split="validation",
+                sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
+            )
+        )
+    non_empty_defensive_reaction_subgroup_frames = [
+        frame for frame in defensive_reaction_subgroup_frames if not frame.empty
+    ]
+    defensive_reaction_subgroup_frame = (
+        pd.concat(non_empty_defensive_reaction_subgroup_frames, ignore_index=True)
+        if non_empty_defensive_reaction_subgroup_frames
+        else pd.DataFrame()
     )
     dataset_summary_payload = dataset_summary(
         frame=frame,
         train_frame=split.train,
+        validation_frame=split.validation,
         test_frame=split.test,
         target_columns=target_columns,
     )
+    dataset_summary_payload["sparse_tracking_threshold"] = config.evaluation.sparse_tracking_threshold
     proposal_summary = proposal_summary_markdown(
         dataset_summary_payload,
         best_models_frame,
         motion_lift_frame,
         tracking_response_lift_frame,
+        motion_effect_frame=motion_effect_frame,
+        defensive_reaction_frame=defensive_reaction_frame,
     )
 
     overall_path = write_frame(
         overall_metrics,
         _artifacts_dir(config, "metrics") / "overall_metrics.csv",
+    )
+    validation_path = write_frame(
+        validation_metrics,
+        _artifacts_dir(config, "metrics") / "validation_metrics.csv",
     )
     subgroup_path = write_frame(
         subgroup_metrics_frame,
@@ -364,6 +884,10 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
         best_models_frame,
         _artifacts_dir(config, "metrics") / "best_models.csv",
     )
+    selected_models_path = write_frame(
+        selected_models_frame,
+        _artifacts_dir(config, "metrics") / "selected_models.csv",
+    )
     motion_lift_path = write_frame(
         motion_lift_frame,
         _artifacts_dir(config, "metrics") / "motion_lift_overall.csv",
@@ -380,6 +904,22 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
         tracking_response_lift_subgroup_frame,
         _artifacts_dir(config, "metrics") / "tracking_response_lift_subgroups.csv",
     )
+    motion_effect_path = write_frame(
+        motion_effect_frame,
+        _artifacts_dir(config, "metrics") / "motion_effect_overall.csv",
+    )
+    motion_effect_subgroup_path = write_frame(
+        motion_effect_subgroup_frame,
+        _artifacts_dir(config, "metrics") / "motion_effect_subgroups.csv",
+    )
+    defensive_reaction_path = write_frame(
+        defensive_reaction_frame,
+        _artifacts_dir(config, "metrics") / "defensive_reaction_overall.csv",
+    )
+    defensive_reaction_subgroup_path = write_frame(
+        defensive_reaction_subgroup_frame,
+        _artifacts_dir(config, "metrics") / "defensive_reaction_subgroups.csv",
+    )
     dataset_summary_path = write_json(
         dataset_summary_payload,
         _artifacts_dir(config, "metrics") / "dataset_summary.json",
@@ -391,14 +931,20 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
 
     return {
         "overall_metrics": overall_path,
+        "validation_metrics": validation_path,
         "subgroup_metrics": subgroup_path,
         "model_manifest": manifest_path,
         "season_summary": season_summary_path,
         "best_models": best_models_path,
+        "selected_models": selected_models_path,
         "motion_lift_overall": motion_lift_path,
         "motion_lift_subgroups": motion_lift_subgroup_path,
         "tracking_response_lift_overall": tracking_response_lift_path,
         "tracking_response_lift_subgroups": tracking_response_lift_subgroup_path,
+        "motion_effect_overall": motion_effect_path,
+        "motion_effect_subgroups": motion_effect_subgroup_path,
+        "defensive_reaction_overall": defensive_reaction_path,
+        "defensive_reaction_subgroups": defensive_reaction_subgroup_path,
         "dataset_summary": dataset_summary_path,
         "proposal_summary": proposal_summary_path,
     }

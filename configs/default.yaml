@@ -85,7 +85,17 @@ targets:
     - epa
   explosive_threshold: 20
 
+experiment:
+  mode: "balanced_research"
+  enable_motion_effect_analysis: true
+  enable_defensive_response_analysis: true
+  feature_sets:
+    - context_only
+    - context_plus_motion
+    - full
+
 split:
+  strategy: "explicit"
   train_seasons: [2022, 2023, 2024]
   validation_seasons: []
   test_seasons: [2025]
@@ -104,6 +114,14 @@ models:
 evaluation:
   classification_threshold: 0.5
   calibration_bins: 10
+  motion_effect_control_columns:
+    - down_bucket
+    - distance_bucket
+    - field_zone
+    - score_state
+  motion_effect_minimum_size: 100
+  defensive_response_minimum_size: 75
+  sparse_tracking_threshold: 0.25
   subgroup_columns:
     - down_bucket
     - distance_bucket

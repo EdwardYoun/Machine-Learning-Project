@@ -4,7 +4,9 @@ from math import sqrt
 
 import numpy as np
 from sklearn.metrics import (
+    balanced_accuracy_score,
     brier_score_loss,
+    f1_score,
     log_loss,
     mean_absolute_error,
     mean_squared_error,
@@ -46,6 +48,8 @@ def classification_metrics(
         "brier_score": float(brier_score_loss(y_true, y_prob)),
         "expected_calibration_error": expected_calibration_error(y_true, y_prob, bins),
         "predicted_positive_rate": float(y_pred.mean()),
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
+        "f1": float(f1_score(y_true, y_pred, zero_division=0)),
     }
 
 

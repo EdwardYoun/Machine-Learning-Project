@@ -1,83 +1,103 @@
 # Results Summary
 
-This summary reflects the current outputs in `artifacts/reading-the-defense-tracking/metrics/` from `configs/tracking_experiment.yaml`, which trains on the 2023 season and tests on the 2024 season.
+This summary reflects the final outputs in `artifacts/motion-value-v2-final/metrics/` from `configs/motion_value_v2_final.yaml`.
+
+The final experiment uses:
+
+- `2023` as the training season
+- `2024` as the test season
+- V2 feature groups: `context_only`, `context_plus_motion`, and `full`
+- validation-aware model selection with target-specific model families
+- a local tracking integration, while explicitly treating test-split tracking conclusions as directional because coverage is sparse
 
 ## Dataset and coverage
 
-- Total pass-play rows: 40,809
-- Train rows: 20,693
-- Test rows: 20,116
-- FTN charting coverage: 100.0%
-- Overall tracking coverage: 34.9%
-- Train tracking coverage: 68.2% (14,107 rows)
-- Test tracking coverage: 0.7% (143 rows)
-- Overall motion rate: 45.7%
+- Total pass-play rows: `40,809`
+- Train rows: `20,693`
+- Test rows: `20,116`
+- FTN charting coverage: `100.0%`
+- Overall tracking coverage: `34.9%`
+- Train tracking coverage: `68.2%`
+- Test tracking coverage: `0.7%`
+- Overall motion rate: `45.7%`
 
 | Season | Rows | Tracking coverage | Motion rate | Success rate | Explosive rate | Completion rate | Mean EPA |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | 2023 | 20,693 | 68.2% | 42.0% | 0.444 | 0.082 | 0.571 | -0.001 |
 | 2024 | 20,116 | 0.7% | 49.5% | 0.458 | 0.082 | 0.578 | 0.052 |
 
-## Headline findings
-
-1. Motion features help completion prediction on the full test set.
-   The full model beats the `no_motion` ablation for completion in both families: logistic regression improves from 0.569 to 0.594 AUROC (+0.025), and random forest improves from 0.568 to 0.590 (+0.022).
-2. Motion has only modest value for explosive-play prediction.
-   Logistic regression improves slightly from 0.596 to 0.602 AUROC (+0.006), while random forest gets worse from 0.595 to 0.588 (-0.007).
-3. Motion hurts the current success and EPA models.
-   For success, logistic regression drops from 0.576 to 0.565 AUROC and random forest drops from 0.560 to 0.546 when motion features are added. For EPA, RMSE worsens from 1.691 to 1.734 for ridge regression and from 1.715 to 1.771 for random forest.
-4. Simpler models are currently the strongest overall.
-   On the full test set, the best models are logistic regression for all three classification targets and ridge regression for EPA.
-5. The current tracking-response features are not adding stable value yet.
-   On the full test set, completion and explosive prediction are both best with the `no_tracking_response` ablation, and the full-vs-`no_tracking_response` deltas are near zero or negative across most targets.
-
-## Best observed models
+## Final selected models
 
 ### Full test set (`all`)
 
 | Target | Best model | Feature set | Metric |
 | --- | --- | --- | --- |
-| Completion | Logistic regression | `no_tracking_response` | AUROC = 0.597 |
-| Explosive | Logistic regression | `no_tracking_response` | AUROC = 0.608 |
-| Success | Logistic regression | `no_motion` | AUROC = 0.576 |
-| EPA | Ridge regression | `no_motion` | RMSE = 1.691 |
+| Completion | Gradient boosting | `full` | Balanced accuracy = `0.5543`, AUROC = `0.5869` |
+| Explosive | Logistic regression | `context_plus_motion` | Balanced accuracy = `0.5117`, AUROC = `0.6084` |
+| Success | Logistic regression | `full` | Balanced accuracy = `0.5030`, AUROC = `0.5655` |
+| EPA | Gradient boosting | `context_only` | RMSE = `1.6686` |
 
 ### Tracking-only test slice (`tracking_only`)
 
 | Target | Best model | Feature set | Metric |
 | --- | --- | --- | --- |
-| Completion | Random forest | `no_tracking_response` | AUROC = 0.575 |
-| Explosive | Random forest | `no_tracking_response` | AUROC = 0.750 |
-| Success | Logistic regression | `no_motion` | AUROC = 0.559 |
-| EPA | Random forest | `full` | RMSE = 1.569 |
+| Completion | Gradient boosting | `full` | Balanced accuracy = `0.5480`, AUROC = `0.5808` |
+| Explosive | Logistic regression | `full` | Balanced accuracy = `0.6620`, AUROC = `0.7464` |
+| Success | Gradient boosting | `context_only` | Balanced accuracy = `0.5431`, AUROC = `0.5776` |
+| EPA | Ridge regression | `full` | RMSE = `1.5919` |
 
-The `tracking_only` slice should be treated as directional rather than conclusive because it contains only 143 test plays.
+The `tracking_only` slice contains only `143` test plays and should be treated as directional, not conclusive.
 
-## Subgroup patterns
+## Headline findings
 
-- Completion is where motion helps most consistently. On the full test set, the largest broad-sample gains for logistic regression show up on early downs (+0.040 AUROC), in scoring range (+0.036), in the red zone (+0.035), on long-yardage plays (+0.032), and against standard boxes (+0.032).
-- Success is where motion hurts most consistently. The largest broad-sample drops for logistic regression appear in one-score games (-0.015 AUROC), on long-yardage plays (-0.014), when backed up (-0.016), against standard boxes (-0.013), and on early downs (-0.011).
-- Explosive-play gains are real but small. On the full test set, the best broad-sample logistic-regression subgroup lifts are only around +0.006 to +0.008 AUROC, including one-score games (+0.008), medium distance (+0.008), scoring range (+0.008), and early downs (+0.007).
-- Tracking-response lifts do not show a stable pattern on the full test set. Outside tiny subgroups, the deltas are generally small, and several of the larger broad-sample changes are negative for explosive prediction, which suggests the current response features are not yet carrying robust holdout signal.
+1. The clearest overall motion signal is on completion.
+   After context controls, motion is associated with a `+0.0305` increase in completion probability on the test split.
+2. Motion effects are unclear for success, explosive rate, and EPA.
+   The adjusted motion-effect summary is not strong enough to call those targets positive or negative overall.
+3. Motion-related features still help some predictive tasks even when the top-line adjusted effect is mixed.
+   `context_plus_motion` wins for explosive prediction, and `full` wins for completion prediction.
+4. EPA is best modeled without relying on motion/tracking additions.
+   The best EPA model is gradient boosting with `context_only`, which is consistent with the idea that the current motion features do not improve this broader outcome.
+5. Defensive-response findings remain limited by holdout tracking coverage.
+   Tracking coverage is strong in train but only `0.7%` in test, so any defense-reaction claims should be framed as exploratory.
 
-## Interpretation so far
+## Overall motion effect
 
-- The clearest result is that pre-snap motion information helps explain completion probability more than it helps explain overall success or EPA in the current feature set.
-- The fact that `no_motion` wins for success and EPA suggests the current motion features may be capturing descriptive context without adding enough incremental signal for those harder targets.
-- The fact that `no_tracking_response` often matches or beats `full` suggests the current defensive-response tracking features are still too weak, too sparse, or both.
-- Because the 2024 test split has only 143 tracking rows, we should treat any tracking-specific claim as provisional until we run a denser tracking backtest.
+| Target | Adjusted effect | 95% CI | Interpretation |
+| --- | ---: | --- | --- |
+| Success | `+0.0036` | `[-0.0032, 0.0060]` | Unclear |
+| Explosive | `-0.0001` | `[0.0032, 0.0090]` | Unclear |
+| Completion | `+0.0305` | `[0.0241, 0.0404]` | Helps |
+| EPA | `-0.0018` | `[-0.0241, 0.0149]` | Unclear |
+
+These effects are estimated after controlling for:
+
+- `down_bucket`
+- `distance_bucket`
+- `field_zone`
+- `score_state`
+
+## Feature-group interpretation
+
+- `completion`: the best final model uses `full`, and motion shows the clearest positive adjusted effect here
+- `explosive`: the best final model uses `context_plus_motion`, suggesting motion/context features help more than tracking-response features
+- `success`: the best final model uses `full`, but the adjusted motion effect remains unclear
+- `epa`: the best final model uses `context_only`, which suggests the current motion and tracking additions do not improve this target
 
 ## Bottom line
 
-So far, the strongest defensible claim is that motion helps completion prediction, offers only limited help for explosive-play prediction, and does not currently improve success or EPA prediction. We do not yet have strong evidence that the current tracking-response features improve holdout performance, and the sparse 2024 tracking coverage is the main reason to frame those tracking findings as preliminary.
+The strongest defensible final claim is:
 
-## Source files
+> Pre-snap motion shows its clearest positive relationship with completion, while its overall effect on success, explosive plays, and EPA is unclear under the current controls and dataset.
 
-- `artifacts/reading-the-defense-tracking/metrics/dataset_summary.json`
-- `artifacts/reading-the-defense-tracking/metrics/season_summary.csv`
-- `artifacts/reading-the-defense-tracking/metrics/overall_metrics.csv`
-- `artifacts/reading-the-defense-tracking/metrics/best_models.csv`
-- `artifacts/reading-the-defense-tracking/metrics/motion_lift_overall.csv`
-- `artifacts/reading-the-defense-tracking/metrics/motion_lift_subgroups.csv`
-- `artifacts/reading-the-defense-tracking/metrics/tracking_response_lift_overall.csv`
-- `artifacts/reading-the-defense-tracking/metrics/tracking_response_lift_subgroups.csv`
+The project is strongest as a robust experimental framework with transparent ablations, validation-aware model selection, and interpretable motion-effect summaries. It is not strongest as a high-accuracy deployment model or as a definitive tracking-based study of defensive reaction.
+
+## Final source files
+
+- `artifacts/motion-value-v2-final/metrics/proposal_summary.md`
+- `artifacts/motion-value-v2-final/metrics/selected_models.csv`
+- `artifacts/motion-value-v2-final/metrics/motion_effect_overall.csv`
+- `artifacts/motion-value-v2-final/metrics/motion_lift_overall.csv`
+- `artifacts/motion-value-v2-final/metrics/defensive_reaction_overall.csv`
+- `artifacts/motion-value-v2-final/metrics/dataset_summary.json`
+- `artifacts/motion-value-v2-final/metrics/season_summary.csv`

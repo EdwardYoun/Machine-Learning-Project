@@ -7,8 +7,8 @@ This scaffold turns the proposal into a reproducible Python pipeline that:
 - pulls play-by-play data and FTN charting data through `nflreadpy`
 - filters to pass plays and engineers pre-snap motion/context features
 - trains interpretable baseline models and nonlinear models across multiple proposal targets
-- compares full-feature models against motion-ablated variants
-- reports season-aware test metrics, subgroup analysis, and motion-lift summaries
+- compares `context_only`, `context_plus_motion`, and `full` feature groups
+- reports validation-aware model selection, context-adjusted motion effects, subgroup analysis, and defensive-response summaries
 
 ## Why Python here?
 
@@ -24,6 +24,18 @@ src/pre_snap_motion/      Project package
 tests/                    Lightweight regression tests
 ML_Project_Proposal.pdf   Original proposal
 ```
+
+## Core Documents
+
+If you are opening the repo to understand the final project quickly, start here:
+
+- `configs/motion_value_v2_final.yaml`: final experiment configuration
+- `docs/final_experiment_handoff.md`: slide/report handoff and chart guide
+- `results_summary.md`: high-level final findings
+- `artifacts/motion-value-v2-final/metrics/proposal_summary.md`: final narrative summary generated from the experiment
+- `artifacts/motion-value-v2-final/metrics/selected_models.csv`: final selected-model table
+- `artifacts/motion-value-v2-final/metrics/motion_effect_overall.csv`: top-line motion-effect results
+- `artifacts/motion-value-v2-final/metrics/dataset_summary.json`: coverage and dataset context
 
 ## Quick Start
 
@@ -42,6 +54,11 @@ pre-snap-motion prepare --config configs/default.yaml
 pre-snap-motion train --config configs/default.yaml
 pre-snap-motion run --config configs/default.yaml
 pre-snap-motion run --config configs/tracking_experiment.yaml
+pre-snap-motion run --config configs/motion_value_v2.yaml
+pre-snap-motion run --config configs/motion_value_v2_inference.yaml
+pre-snap-motion run --config configs/motion_value_v2_no_calibration.yaml
+pre-snap-motion run --config configs/motion_value_v2_offense_only.yaml
+python scripts/run_experiment.py --command compare --config configs/motion_value_v2.yaml --config configs/motion_value_v2_inference.yaml --config configs/motion_value_v2_no_calibration.yaml --config configs/motion_value_v2_offense_only.yaml
 python scripts/run_experiment.py --command run --config configs/tracking_experiment.yaml
 python scripts/run_experiment.py --command inspect --config configs/tracking_experiment.yaml
 ```
@@ -55,29 +72,42 @@ Artifacts are written to:
 
 The metrics directory now includes:
 
-- `overall_metrics.csv` for all target/model/feature-set combinations
-- an `evaluation_slice` column so tracking experiments can report both `all` plays and `tracking_only` holdout rows
-- `motion_lift_overall.csv` for `full` vs `no_motion` improvement deltas
-- `subgroup_metrics.csv` and `motion_lift_subgroups.csv` for where motion helps most
+- `overall_metrics.csv` for held-out target/model/feature-set combinations
+- `validation_metrics.csv` for validation-based model selection
+- `selected_models.csv` for the compact validation-selected holdout winners
+- an `evaluation_slice` column so tracking experiments can report both `all` plays and `tracking_only` rows
+- `motion_effect_overall.csv` and `motion_effect_subgroups.csv` for context-adjusted motion impact estimates
+- `motion_lift_overall.csv` for `context_plus_motion` vs `context_only` lift
+- `defensive_reaction_overall.csv` and `defensive_reaction_subgroups.csv` for tracking-based defensive response summaries
 - `season_summary.csv` and `dataset_summary.json` for dataset coverage and target rates
-- `proposal_summary.md` for a readable experiment summary
+- `proposal_summary.md` for a readable motion-value summary
 
 The centralized runner can also execute multiple configs or inspect tracking availability:
 
 ```powershell
 python scripts/run_experiment.py --command inspect --config configs/tracking_experiment.yaml
 python scripts/run_experiment.py --command run --all-configs
+python scripts/run_experiment.py --command compare --config configs/motion_value_v2.yaml --config configs/motion_value_v2_inference.yaml --config configs/motion_value_v2_no_calibration.yaml --config configs/motion_value_v2_offense_only.yaml
 ```
+
+The comparison workflow is intended to decide which V2 experiment deserves a full retrain:
+
+- `configs/motion_value_v2.yaml` is the default balanced-research candidate.
+- `configs/motion_value_v2_inference.yaml` constrains the stack to interpretable logistic/ridge baselines.
+- `configs/motion_value_v2_no_calibration.yaml` isolates the value of classifier calibration.
+- `configs/motion_value_v2_offense_only.yaml` removes tracking so the top-line offensive motion question can be evaluated without defensive-response features.
+
+`compare` ranks completed configs by the configured primary target, summarizes how many ranked targets motion appears to help or hurt, and notes whether defensive-reaction outputs are reportable or only directional.
 
 ## Tracking Integration
 
 The repo now supports a local Big Data Bowl tracking branch through
-`configs/tracking_experiment.yaml`.
+`configs/tracking_experiment.yaml` and `configs/motion_value_v2.yaml`.
 
 - It reads the competition `train/input_*.csv` and `test_input.csv` files locally.
 - It aggregates them into play-level tracking features under `data/raw/tracking_play_features_*.parquet`.
 - It joins those features to the nflverse + FTN play table on legacy `old_game_id` plus `play_id`.
-- It adds a `no_tracking_response` feature-set ablation so we can compare alignment-only features against response-aware tracking features.
+- It adds a `context_plus_motion` vs `full` comparison so we can compare alignment-only features against response-aware tracking features.
 - The tracking cache now auto-refreshes when new local input files are added, so if `train/input_2024_w*.csv` files are dropped in later they will be picked up automatically by the same config.
 
 Important caveat:
@@ -93,9 +123,9 @@ Important caveat:
 2. **Baseline vs nonlinear models**
    The registry includes logistic/ridge baselines and nonlinear tree-based models.
 3. **Motion-value hypothesis**
-   The training loop automatically runs both `full` and `no_motion` feature sets so the ablation question from the proposal is built into the workflow.
+   The framework now separates context-only, motion-aware, and defensive-response feature groups so the top-line motion question and the tracking-response question are both explicit.
 4. **Evaluation**
-   Classification metrics include AUROC, log loss, Brier score, and expected calibration error across success, explosive-play, and completion targets. Regression metrics include RMSE and MAE for EPA. Splits are season-aware by config.
+   Classification metrics include AUROC, log loss, Brier score, and expected calibration error across success, explosive-play, and completion targets. Regression metrics include RMSE and MAE for EPA. Validation-based selection and context-adjusted motion-effect summaries are configurable by experiment.
 5. **Subgroup analysis**
    The reporting step slices performance by down, distance, field zone, score state, pressure, QB location, and hash-based structure.
 
@@ -103,8 +133,18 @@ Important caveat:
 
 1. Run `pre-snap-motion fetch` to cache raw nflverse and FTN data locally.
 2. Run `pre-snap-motion prepare` to build the pass-play modeling table.
-3. Run `pre-snap-motion train` to fit baseline and nonlinear models on explicit train/test seasons.
-4. Inspect `artifacts/metrics/overall_metrics.csv` and `best_models.csv` for model comparisons.
-5. Inspect `artifacts/metrics/motion_lift_overall.csv` and `motion_lift_subgroups.csv` to see where motion adds the most value.
-6. Read `artifacts/metrics/proposal_summary.md` for a concise write-up of the current experiment.
-7. Extend `configs/default.yaml` or add a new config for tracking-data experiments later.
+3. Run `pre-snap-motion train` to fit baseline and nonlinear models with validation-aware selection.
+4. Inspect `artifacts/<project_name>/metrics/validation_metrics.csv`, `selected_models.csv`, and `best_models.csv` for model comparisons.
+5. Inspect `motion_effect_overall.csv`, `motion_lift_overall.csv`, and `defensive_reaction_overall.csv` to see where motion helps, hurts, or changes defensive behavior.
+6. Read `artifacts/<project_name>/metrics/proposal_summary.md` for a concise write-up of the current experiment.
+7. Start with `configs/motion_value_v2.yaml` for the upgraded framework.
+
+## Final Project Handoff
+
+For the final class-project writeup and slide prep, start with:
+
+- final config: `configs/motion_value_v2_final.yaml`
+- final artifact summary: `docs/final_experiment_handoff.md`
+- final narrative summary: `artifacts/motion-value-v2-final/metrics/proposal_summary.md`
+
+The handoff doc points to the exact CSV files to use for charts, the final results worth highlighting, and the limitations that should be stated clearly in the presentation and report.
