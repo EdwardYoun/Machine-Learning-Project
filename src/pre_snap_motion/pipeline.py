@@ -33,6 +33,16 @@ def train(config: ProjectConfig) -> dict[str, Path]:
             f"Missing processed dataset at {dataset_path}. Run the prepare command first."
         )
     dataset = pl.read_parquet(dataset_path)
+    if config.experiment.enable_motion_effect_analysis and "is_motion_flag" not in dataset.columns:
+        raise ValueError(
+            f"Processed dataset at {dataset_path} is missing 'is_motion_flag'. "
+            "Re-run the prepare command so motion-effect features are rebuilt."
+        )
+    if config.tracking.enabled and "has_tracking_data" not in dataset.columns:
+        raise ValueError(
+            f"Processed dataset at {dataset_path} is missing 'has_tracking_data'. "
+            "Re-run the prepare command so tracking joins are rebuilt."
+        )
     return train_models(dataset, config)
 
 

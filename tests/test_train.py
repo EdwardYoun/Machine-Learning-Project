@@ -3,6 +3,7 @@ import polars as pl
 
 from pre_snap_motion.config import ProjectConfig
 from pre_snap_motion.modeling.train import _model_names_for_target, _select_threshold, train_models
+from pre_snap_motion.pipeline import train
 
 
 def test_select_threshold_uses_requested_metric() -> None:
@@ -113,3 +114,33 @@ def test_train_models_runs_end_to_end_on_small_dataset(tmp_path) -> None:
     assert outputs["overall_metrics"].exists()
     assert outputs["validation_metrics"].exists()
     assert outputs["selected_models"].exists()
+
+
+def test_pipeline_train_rejects_stale_processed_dataset_missing_motion_flag(tmp_path) -> None:
+    config = ProjectConfig()
+    config.project_name = "stale"
+    config.paths.artifacts_dir = str(tmp_path / "artifacts")
+    config.paths.processed_dir = str(tmp_path / "processed")
+    dataset_path = tmp_path / "processed" / "stale_passing_motion_modeling_dataset.parquet"
+    dataset_path.parent.mkdir(parents=True, exist_ok=True)
+    pl.DataFrame(
+        {
+            "season": [2023, 2024],
+            "week": [1, 1],
+            "game_id": ["2023000001", "2024000001"],
+            "play_id": [1, 1],
+            "posteam": ["A", "A"],
+            "defteam": ["B", "B"],
+            "target_success": [0, 1],
+            "target_explosive": [0, 1],
+            "target_completion": [0, 1],
+            "target_epa": [0.0, 1.0],
+            "has_tracking_data": [0, 0],
+        }
+    ).write_parquet(dataset_path)
+
+    try:
+        train(config)
+        assert False, "Expected train() to reject stale processed dataset"
+    except ValueError as exc:
+        assert "is_motion_flag" in str(exc)

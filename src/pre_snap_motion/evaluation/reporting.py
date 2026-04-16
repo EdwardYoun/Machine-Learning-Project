@@ -441,9 +441,9 @@ def _bootstrap_effect_interval(
 
 
 def _effect_direction(effect: float, ci_lower: float, ci_upper: float) -> str:
-    if ci_lower > 0:
+    if effect > 0 and ci_lower > 0:
         return "helps"
-    if ci_upper < 0:
+    if effect < 0 and ci_upper < 0:
         return "hurts"
     return "unclear"
 

@@ -1,6 +1,7 @@
 import pandas as pd
 
 from pre_snap_motion.evaluation.reporting import (
+    _effect_direction,
     best_models,
     dataset_summary,
     defensive_reaction_overall,
@@ -164,3 +165,7 @@ def test_defensive_reaction_overall_filters_to_tracking_rows() -> None:
     assert effects.loc[0, "response_column"] == "tracking_skill_separation_gain"
     assert effects.loc[0, "n_obs"] == 2
     assert bool(effects.loc[0, "tracking_is_sparse"]) is True
+
+
+def test_effect_direction_is_conservative_when_point_and_interval_disagree() -> None:
+    assert _effect_direction(-0.001, 0.002, 0.01) == "unclear"

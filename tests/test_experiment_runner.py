@@ -16,6 +16,7 @@ def test_available_config_paths_finds_yaml_configs() -> None:
     assert "quickstart.yaml" in config_names
     assert "tracking_experiment.yaml" in config_names
     assert "motion_value_v2.yaml" in config_names
+    assert "motion_value_v2_final.yaml" in config_names
     assert "motion_value_v2_inference.yaml" in config_names
     assert "motion_value_v2_no_calibration.yaml" in config_names
     assert "motion_value_v2_offense_only.yaml" in config_names

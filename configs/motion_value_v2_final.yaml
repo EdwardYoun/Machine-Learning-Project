@@ -1,0 +1,95 @@
+project_name: "motion-value-v2-final"
+
+paths:
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+  artifacts_dir: "artifacts"
+
+experiment:
+  mode: "balanced_research"
+  enable_motion_effect_analysis: true
+  enable_defensive_response_analysis: true
+  feature_sets:
+    - context_only
+    - context_plus_motion
+    - full
+
+data:
+  pbp_seasons: [2023, 2024]
+  ftn_seasons: [2023, 2024]
+  use_ftn_charting: true
+  season_type: "REG"
+
+tracking:
+  enabled: true
+  input_globs:
+    - "train/input_*.csv"
+  input_files:
+    - "test_input.csv"
+  cache_file: "tracking_play_features_2023_2024_v2.parquet"
+
+split:
+  strategy: "explicit"
+  train_seasons: [2023]
+  validation_seasons: []
+  test_seasons: [2024]
+
+models:
+  classification_models:
+    - logistic_regression
+    - gradient_boosting
+  target_classification_models:
+    success:
+      - logistic_regression
+      - gradient_boosting
+    explosive:
+      - logistic_regression
+      - gradient_boosting
+    completion:
+      - logistic_regression
+      - gradient_boosting
+  regression_models:
+    - ridge_regression
+    - gradient_boosting
+  target_regression_models:
+    epa:
+      - ridge_regression
+      - gradient_boosting
+  classification_calibration_method: "none"
+  random_state: 42
+
+evaluation:
+  classification_threshold: 0.5
+  classification_threshold_grid: [0.35, 0.45, 0.5, 0.55, 0.65]
+  threshold_selection_metric: "balanced_accuracy"
+  classification_selection_metric: "balanced_accuracy"
+  regression_selection_metric: "rmse"
+  calibration_bins: 10
+  motion_effect_control_columns:
+    - down_bucket
+    - distance_bucket
+    - field_zone
+    - score_state
+  subgroup_columns:
+    - down_bucket
+    - distance_bucket
+    - field_zone
+    - pressure_bucket
+    - score_state
+    - qb_location
+    - starting_hash
+    - box_bucket
+  minimum_subgroup_size: 50
+  motion_effect_minimum_size: 125
+  defensive_response_minimum_size: 50
+  sparse_tracking_threshold: 0.10
+
+comparison:
+  primary_target: "completion"
+  rank_targets:
+    - completion
+    - explosive
+    - success
+    - epa
+  classification_metric: "balanced_accuracy"
+  regression_metric: "rmse"
