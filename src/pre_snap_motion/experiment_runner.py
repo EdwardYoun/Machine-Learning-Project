@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Callable
 
 import pandas as pd
+from pandas.errors import EmptyDataError
 
 from pre_snap_motion.config import ProjectConfig, load_config
 from pre_snap_motion.data.tracking import (
@@ -118,6 +119,15 @@ def _print_outputs(outputs: object) -> None:
     print(f"Output: {outputs}")
 
 
+def _read_csv_if_present(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(path)
+    except EmptyDataError:
+        return pd.DataFrame()
+
+
 def _print_metric_summary(config: ProjectConfig) -> None:
     metrics_dir = project_artifacts_dir(config) / "metrics"
     dataset_summary_path = metrics_dir / "dataset_summary.json"
@@ -144,7 +154,7 @@ def _print_metric_summary(config: ProjectConfig) -> None:
             print(f"  - tracking coverage: {payload['tracking_coverage_rate']:.1%}")
 
     if best_models_path.exists():
-        best_models = pd.read_csv(best_models_path)
+        best_models = _read_csv_if_present(best_models_path)
         if best_models.empty:
             return
         print("Best models:")
@@ -172,7 +182,7 @@ def _print_metric_summary(config: ProjectConfig) -> None:
             )
 
     if selected_models_path.exists():
-        selected_models = pd.read_csv(selected_models_path)
+        selected_models = _read_csv_if_present(selected_models_path)
         if not selected_models.empty:
             print("Selected holdout models:")
             columns = [
@@ -204,8 +214,9 @@ def _print_metric_summary(config: ProjectConfig) -> None:
                 )
 
     if motion_effect_path.exists():
-        motion_effect = pd.read_csv(motion_effect_path)
-        motion_effect = motion_effect.loc[motion_effect["dataset_split"] == "test"]
+        motion_effect = _read_csv_if_present(motion_effect_path)
+        if "dataset_split" in motion_effect.columns:
+            motion_effect = motion_effect.loc[motion_effect["dataset_split"] == "test"]
         if not motion_effect.empty:
             print("Motion effect:")
             for _, row in motion_effect.iterrows():
@@ -215,10 +226,11 @@ def _print_metric_summary(config: ProjectConfig) -> None:
                 )
 
     if defensive_reaction_path.exists():
-        defensive_reaction = pd.read_csv(defensive_reaction_path)
-        defensive_reaction = defensive_reaction.loc[
-            defensive_reaction["dataset_split"] == "test"
-        ]
+        defensive_reaction = _read_csv_if_present(defensive_reaction_path)
+        if "dataset_split" in defensive_reaction.columns:
+            defensive_reaction = defensive_reaction.loc[
+                defensive_reaction["dataset_split"] == "test"
+            ]
         if not defensive_reaction.empty:
             sparse_mask = (
                 defensive_reaction["tracking_is_sparse"].astype(bool)
@@ -289,6 +301,8 @@ def _metric_sort_value(
 
 
 def _effect_counts(motion_effect: pd.DataFrame, rank_targets: list[str]) -> dict[str, int]:
+    if "target" not in motion_effect.columns or "effect_direction" not in motion_effect.columns:
+        return {"helps": 0, "hurts": 0, "unclear": 0}
     target_effects = motion_effect.loc[motion_effect["target"].isin(rank_targets)]
     if target_effects.empty:
         return {"helps": 0, "hurts": 0, "unclear": 0}
@@ -338,7 +352,10 @@ def _comparison_row(
             row[f"{target_name}_metric"] = metric_name
         if metric_value is not None:
             row[f"{target_name}_value"] = metric_value
-        target_motion = motion_effect.loc[motion_effect["target"] == target_name]
+        if "target" not in motion_effect.columns:
+            target_motion = pd.DataFrame()
+        else:
+            target_motion = motion_effect.loc[motion_effect["target"] == target_name]
         if not target_motion.empty:
             effect_row = target_motion.iloc[0]
             row[f"{target_name}_effect"] = effect_row["adjusted_effect"]
@@ -466,19 +483,18 @@ def compare_configs(config_paths: list[Path]) -> dict[str, Path]:
         if not selected_models_path.exists() or not motion_effect_path.exists():
             continue
 
-        selected_models = pd.read_csv(selected_models_path)
-        motion_effect = pd.read_csv(motion_effect_path)
-        defensive_reaction = (
-            pd.read_csv(defensive_reaction_path)
-            if defensive_reaction_path.exists()
-            else pd.DataFrame()
-        )
+        selected_models = _read_csv_if_present(selected_models_path)
+        motion_effect = _read_csv_if_present(motion_effect_path)
+        defensive_reaction = _read_csv_if_present(defensive_reaction_path)
         dataset_summary = (
             json.loads(dataset_summary_path.read_text(encoding="utf-8"))
             if dataset_summary_path.exists()
             else {}
         )
-        motion_effect = motion_effect.loc[motion_effect["dataset_split"] == "test"]
+        if selected_models.empty:
+            continue
+        if "dataset_split" in motion_effect.columns:
+            motion_effect = motion_effect.loc[motion_effect["dataset_split"] == "test"]
         if not defensive_reaction.empty and "dataset_split" in defensive_reaction.columns:
             defensive_reaction = defensive_reaction.loc[
                 defensive_reaction["dataset_split"] == "test"
