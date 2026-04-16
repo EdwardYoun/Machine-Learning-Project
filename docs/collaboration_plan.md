@@ -9,25 +9,23 @@ how much value pre-snap motion adds on NFL passing plays, and when that value is
 
 ### What Is Already Done
 
-- the repo has a working Python project structure with configs, package code, tests, and docs
-- nflverse play-by-play and FTN charting ingestion are wired into the pipeline
-- pass-play filtering and proposal-aligned target engineering are implemented
-- baseline and nonlinear models run across `success`, `explosive`, `completion`, and `epa`
-- `full` vs `no_motion` ablations are built into training
-- subgroup metrics, motion-lift summaries, season summaries, and proposal markdown outputs are generated
-- Big Data Bowl competition inputs are integrated into a tracking-lite play-level feature branch
-- tracking-aware reporting now distinguishes `all` vs `tracking_only` evaluation slices
-- a centralized experiment runner exists for `inspect`, `fetch`, `prepare`, `train`, and `run`
-- the repo has been cleaned up for GitHub upload with ignore rules and contributor documentation
+- the repo has a working Python package, configs, tests, docs, and experiment runner
+- the final experiment config is `configs/motion_value_v2_final.yaml`
+- the final prepared dataset and metrics have been generated
+- the repo includes a final handoff doc for slides/report work
+- the branch is organized for GitHub review and submission use
+
+### Main Final Findings
+
+- the clearest positive motion result is on `completion`
+- the adjusted motion effect is unclear for `success`, `explosive`, and `epa`
+- tracking-response analysis remains exploratory because test tracking coverage is only `0.7%`
 
 ### What Is Still Left To Do
 
-- add a stronger 2023 tracking backtest so tracking results are evaluated on data with real coverage
-- improve tracking-derived alignment and defensive-response features
-- add richer evaluation summaries and clearer comparison tables for the final report
-- decide which results are strong enough to present as the main project findings
-- translate experiment outputs into final visuals, report sections, and presentation material
-- if a better data source becomes available, extend or replace the current limited 2024 tracking setup
+- turn the existing outputs into presentation visuals
+- write the final report sections using the exported summaries and CSV tables
+- optionally push a final PR or merge to the stable branch after review
 
 ## Working Model
 
@@ -147,7 +145,7 @@ Good stopping point:
 
 ## Immediate Next Sprint
 
-1. Contributor 1 builds a 2023-only tracking backtest config and reports coverage.
-2. Contributor 2 adds rolling evaluation summaries and simplified comparison tables.
-3. Contributor 3 turns the current repo state into a polished GitHub-ready narrative and final write-up skeleton.
-4. You review the three pieces together and decide the main analysis narrative.
+1. Build charts from `selected_models.csv`, `motion_effect_overall.csv`, and `dataset_summary.json`.
+2. Turn `proposal_summary.md` and `docs/final_experiment_handoff.md` into presentation bullets.
+3. Draft the final report around the current experiment results and limitations.
+4. Merge or submit once the write-up materials are complete.
