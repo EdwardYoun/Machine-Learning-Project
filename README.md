@@ -126,3 +126,13 @@ Important caveat:
 5. Inspect `motion_effect_overall.csv`, `motion_lift_overall.csv`, and `defensive_reaction_overall.csv` to see where motion helps, hurts, or changes defensive behavior.
 6. Read `artifacts/<project_name>/metrics/proposal_summary.md` for a concise write-up of the current experiment.
 7. Start with `configs/motion_value_v2.yaml` for the upgraded framework.
+
+## Final Project Handoff
+
+For the final class-project writeup and slide prep, start with:
+
+- final config: `configs/motion_value_v2_final.yaml`
+- final artifact summary: `docs/final_experiment_handoff.md`
+- final narrative summary: `artifacts/motion-value-v2-final/metrics/proposal_summary.md`
+
+The handoff doc points to the exact CSV files to use for charts, the final results worth highlighting, and the limitations that should be stated clearly in the presentation and report.

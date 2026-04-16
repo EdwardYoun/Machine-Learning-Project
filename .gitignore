@@ -21,3 +21,5 @@ test_input.csv
 .DS_Store
 .idea/
 .vscode/
+docs/results_summary.md
+kaggle_evaluation/
