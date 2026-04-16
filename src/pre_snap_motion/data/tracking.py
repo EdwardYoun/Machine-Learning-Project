@@ -250,6 +250,30 @@ def _aggregate_tracking_frame(frame: pd.DataFrame) -> pd.DataFrame:
         aggregated["tracking_end_qb_nearest_defender_distance"]
         - aggregated["tracking_start_qb_nearest_defender_distance"]
     )
+    aggregated["tracking_speed_advantage_gain"] = (
+        aggregated["tracking_end_offense_speed_mean"]
+        - aggregated["tracking_end_defense_speed_mean"]
+        - (
+            aggregated["tracking_start_offense_speed_mean"]
+            - aggregated["tracking_start_defense_speed_mean"]
+        )
+    )
+    aggregated["tracking_accel_advantage_gain"] = (
+        aggregated["tracking_end_offense_accel_mean"]
+        - aggregated["tracking_end_defense_accel_mean"]
+        - (
+            aggregated["tracking_start_offense_accel_mean"]
+            - aggregated["tracking_start_defense_accel_mean"]
+        )
+    )
+    aggregated["tracking_defense_y_span_change"] = (
+        aggregated["tracking_end_defense_y_span"]
+        - aggregated["tracking_start_defense_y_span"]
+    )
+    aggregated["tracking_offense_y_span_change"] = (
+        aggregated["tracking_end_offense_y_span"]
+        - aggregated["tracking_start_offense_y_span"]
+    )
 
     return aggregated
 

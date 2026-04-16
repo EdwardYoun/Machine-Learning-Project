@@ -1,13 +1,22 @@
-project_name: "reading-the-defense-tracking"
+project_name: "motion-value-v2"
 
 paths:
   raw_dir: "data/raw"
   processed_dir: "data/processed"
   artifacts_dir: "artifacts"
 
+experiment:
+  mode: "balanced_research"
+  enable_motion_effect_analysis: true
+  enable_defensive_response_analysis: true
+  feature_sets:
+    - context_only
+    - context_plus_motion
+    - full
+
 data:
-  pbp_seasons: [2023, 2024]
-  ftn_seasons: [2023, 2024]
+  pbp_seasons: [2022, 2023, 2024, 2025]
+  ftn_seasons: [2022, 2023, 2024, 2025]
   use_ftn_charting: true
   season_type: "REG"
 
@@ -19,37 +28,22 @@ tracking:
     - "test_input.csv"
   cache_file: "tracking_play_features_2023_2024_v2.parquet"
 
-experiment:
-  mode: "balanced_research"
-  enable_motion_effect_analysis: true
-  enable_defensive_response_analysis: true
-  feature_sets:
-    - context_only
-    - context_plus_motion
-    - full
-
 split:
-  strategy: "explicit"
-  train_seasons: [2023]
+  strategy: "rolling_origin"
+  train_seasons: [2022, 2023, 2024]
   validation_seasons: []
-  test_seasons: [2024]
-
-targets:
-  classification_targets:
-    - success
-    - explosive
-    - completion
-  regression_targets:
-    - epa
-  explosive_threshold: 20
+  test_seasons: [2025]
+  rolling_min_train_seasons: 2
 
 models:
   classification_models:
     - logistic_regression
     - random_forest
+    - gradient_boosting
   regression_models:
     - ridge_regression
     - random_forest
+    - gradient_boosting
   random_state: 42
 
 evaluation:
@@ -60,9 +54,6 @@ evaluation:
     - distance_bucket
     - field_zone
     - score_state
-  motion_effect_minimum_size: 50
-  defensive_response_minimum_size: 25
-  sparse_tracking_threshold: 0.25
   subgroup_columns:
     - down_bucket
     - distance_bucket
@@ -72,4 +63,7 @@ evaluation:
     - qb_location
     - starting_hash
     - box_bucket
-  minimum_subgroup_size: 25
+  minimum_subgroup_size: 50
+  motion_effect_minimum_size: 150
+  defensive_response_minimum_size: 100
+  sparse_tracking_threshold: 0.25

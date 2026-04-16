@@ -9,3 +9,4 @@ def test_available_config_paths_finds_yaml_configs() -> None:
     assert "default.yaml" in config_names
     assert "quickstart.yaml" in config_names
     assert "tracking_experiment.yaml" in config_names
+    assert "motion_value_v2.yaml" in config_names

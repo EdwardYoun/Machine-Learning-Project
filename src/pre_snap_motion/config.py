@@ -115,6 +115,14 @@ class FeaturesConfig:
             "tracking_start_defense_y_span",
             "tracking_end_defense_x_span",
             "tracking_end_defense_y_span",
+            "tracking_start_offense_speed_mean",
+            "tracking_start_defense_speed_mean",
+            "tracking_end_offense_speed_mean",
+            "tracking_end_defense_speed_mean",
+            "tracking_start_offense_accel_mean",
+            "tracking_start_defense_accel_mean",
+            "tracking_end_offense_accel_mean",
+            "tracking_end_defense_accel_mean",
             "tracking_offense_centroid_shift",
             "tracking_defense_centroid_shift",
             "tracking_offense_mean_displacement",
@@ -127,6 +135,10 @@ class FeaturesConfig:
             "tracking_start_qb_nearest_defender_distance",
             "tracking_end_qb_nearest_defender_distance",
             "tracking_qb_pressure_distance_delta",
+            "tracking_speed_advantage_gain",
+            "tracking_accel_advantage_gain",
+            "tracking_defense_y_span_change",
+            "tracking_offense_y_span_change",
         ]
     )
     tracking_categorical: list[str] = field(
@@ -147,11 +159,22 @@ class FeaturesConfig:
             "clock_bucket",
         ]
     )
+    motion_numeric: list[str] = field(
+        default_factory=lambda: [
+            "is_motion_flag",
+            "play_action_motion_flag",
+            "late_down_motion_flag",
+            "red_zone_motion_flag",
+            "under_center_motion_flag",
+        ]
+    )
     motion_related_columns: list[str] = field(
         default_factory=lambda: [
             "is_motion",
+            "is_motion_flag",
             "is_no_huddle",
             "is_play_action",
+            "play_action_motion_flag",
             "is_screen_pass",
             "is_rpo",
             "is_trick_play",
@@ -164,6 +187,9 @@ class FeaturesConfig:
             "pressure_bucket",
             "box_bucket",
             "backfield_bucket",
+            "late_down_motion_flag",
+            "red_zone_motion_flag",
+            "under_center_motion_flag",
         ]
     )
     tracking_response_columns: list[str] = field(
@@ -182,6 +208,14 @@ class FeaturesConfig:
             "tracking_skill_separation_gain",
             "tracking_end_qb_nearest_defender_distance",
             "tracking_qb_pressure_distance_delta",
+            "tracking_end_offense_speed_mean",
+            "tracking_end_defense_speed_mean",
+            "tracking_end_offense_accel_mean",
+            "tracking_end_defense_accel_mean",
+            "tracking_speed_advantage_gain",
+            "tracking_accel_advantage_gain",
+            "tracking_defense_y_span_change",
+            "tracking_offense_y_span_change",
         ]
     )
 
@@ -197,9 +231,11 @@ class TargetsConfig:
 
 @dataclass(slots=True)
 class SplitConfig:
+    strategy: str = "explicit"
     train_seasons: list[int] = field(default_factory=lambda: [2022, 2023, 2024])
     validation_seasons: list[int] = field(default_factory=list)
     test_seasons: list[int] = field(default_factory=lambda: [2025])
+    rolling_min_train_seasons: int = 2
 
 
 @dataclass(slots=True)
@@ -225,10 +261,26 @@ class ModelsConfig:
 class EvaluationConfig:
     classification_threshold: float = 0.5
     calibration_bins: int = 10
+    motion_effect_control_columns: list[str] = field(
+        default_factory=lambda: ["down_bucket", "distance_bucket", "field_zone", "score_state"]
+    )
     subgroup_columns: list[str] = field(
         default_factory=lambda: ["down_bucket", "field_zone", "pressure_bucket"]
     )
     minimum_subgroup_size: int = 50
+    motion_effect_minimum_size: int = 100
+    defensive_response_minimum_size: int = 75
+    sparse_tracking_threshold: float = 0.25
+
+
+@dataclass(slots=True)
+class ExperimentConfig:
+    mode: str = "balanced_research"
+    enable_motion_effect_analysis: bool = True
+    enable_defensive_response_analysis: bool = True
+    feature_sets: list[str] = field(
+        default_factory=lambda: ["context_only", "context_plus_motion", "full"]
+    )
 
 
 @dataclass(slots=True)
@@ -242,10 +294,14 @@ class ProjectConfig:
     split: SplitConfig = field(default_factory=SplitConfig)
     models: ModelsConfig = field(default_factory=ModelsConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+    experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
 
     def validate(self) -> None:
         valid_classification_targets = {"success", "explosive", "completion"}
         valid_regression_targets = {"epa"}
+        valid_split_strategies = {"explicit", "rolling_origin"}
+        valid_experiment_modes = {"balanced_research", "inference_first", "prediction_first"}
+        valid_feature_sets = {"context_only", "context_plus_motion", "full"}
 
         overlap = set(self.split.train_seasons) & set(self.split.test_seasons)
         if overlap:
@@ -263,6 +319,26 @@ class ProjectConfig:
         unknown_regression = set(self.targets.regression_targets) - valid_regression_targets
         if unknown_regression:
             raise ValueError(f"Unknown regression targets: {sorted(unknown_regression)}")
+        if self.split.strategy not in valid_split_strategies:
+            raise ValueError(f"Unknown split strategy: {self.split.strategy}")
+        if self.split.rolling_min_train_seasons < 1:
+            raise ValueError("rolling_min_train_seasons must be at least 1.")
+        if self.experiment.mode not in valid_experiment_modes:
+            raise ValueError(f"Unknown experiment mode: {self.experiment.mode}")
+        unknown_feature_sets = set(self.experiment.feature_sets) - valid_feature_sets
+        if unknown_feature_sets:
+            raise ValueError(f"Unknown experiment feature sets: {sorted(unknown_feature_sets)}")
+        if "full" not in self.experiment.feature_sets:
+            raise ValueError("experiment.feature_sets must include 'full'.")
+        if "context_only" not in self.experiment.feature_sets:
+            raise ValueError("experiment.feature_sets must include 'context_only'.")
+        if (
+            self.experiment.enable_defensive_response_analysis
+            and "context_plus_motion" not in self.experiment.feature_sets
+        ):
+            raise ValueError(
+                "experiment.feature_sets must include 'context_plus_motion' when defensive response analysis is enabled."
+            )
 
 
 def load_config(path: str | Path) -> ProjectConfig:
@@ -278,6 +354,7 @@ def load_config(path: str | Path) -> ProjectConfig:
     split_data = payload.get("split", {})
     models_data = payload.get("models", {})
     evaluation_data = payload.get("evaluation", {})
+    experiment_data = payload.get("experiment", {})
 
     config = ProjectConfig(
         project_name=_value(payload, "project_name", "reading-the-defense"),
@@ -323,6 +400,11 @@ def load_config(path: str | Path) -> ProjectConfig:
                 "derived_categorical",
                 FeaturesConfig().derived_categorical,
             ),
+            motion_numeric=_value(
+                features_data,
+                "motion_numeric",
+                FeaturesConfig().motion_numeric,
+            ),
             motion_related_columns=_value(
                 features_data,
                 "motion_related_columns",
@@ -350,9 +432,11 @@ def load_config(path: str | Path) -> ProjectConfig:
             explosive_threshold=_value(targets_data, "explosive_threshold", 20),
         ),
         split=SplitConfig(
+            strategy=_value(split_data, "strategy", "explicit"),
             train_seasons=_value(split_data, "train_seasons", [2022, 2023, 2024]),
             validation_seasons=_value(split_data, "validation_seasons", []),
             test_seasons=_value(split_data, "test_seasons", [2025]),
+            rolling_min_train_seasons=_value(split_data, "rolling_min_train_seasons", 2),
         ),
         models=ModelsConfig(
             classification_models=_value(
@@ -370,6 +454,11 @@ def load_config(path: str | Path) -> ProjectConfig:
                 evaluation_data, "classification_threshold", 0.5
             ),
             calibration_bins=_value(evaluation_data, "calibration_bins", 10),
+            motion_effect_control_columns=_value(
+                evaluation_data,
+                "motion_effect_control_columns",
+                EvaluationConfig().motion_effect_control_columns,
+            ),
             subgroup_columns=_value(
                 evaluation_data,
                 "subgroup_columns",
@@ -377,6 +466,29 @@ def load_config(path: str | Path) -> ProjectConfig:
             ),
             minimum_subgroup_size=_value(
                 evaluation_data, "minimum_subgroup_size", 50
+            ),
+            motion_effect_minimum_size=_value(
+                evaluation_data, "motion_effect_minimum_size", 100
+            ),
+            defensive_response_minimum_size=_value(
+                evaluation_data, "defensive_response_minimum_size", 75
+            ),
+            sparse_tracking_threshold=_value(
+                evaluation_data, "sparse_tracking_threshold", 0.25
+            ),
+        ),
+        experiment=ExperimentConfig(
+            mode=_value(experiment_data, "mode", "balanced_research"),
+            enable_motion_effect_analysis=_value(
+                experiment_data, "enable_motion_effect_analysis", True
+            ),
+            enable_defensive_response_analysis=_value(
+                experiment_data, "enable_defensive_response_analysis", True
+            ),
+            feature_sets=_value(
+                experiment_data,
+                "feature_sets",
+                ExperimentConfig().feature_sets,
             ),
         ),
     )
