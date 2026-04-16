@@ -34,3 +34,4 @@ def test_load_config_reads_v2_experiment_values() -> None:
         "context_plus_motion",
         "full",
     ]
+    assert config.evaluation.effect_bootstrap_samples == 200

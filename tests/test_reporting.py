@@ -125,10 +125,17 @@ def test_motion_effect_overall_computes_adjusted_difference() -> None:
         target_columns={"success": "target_success"},
         control_columns=["down_bucket", "distance_bucket"],
         minimum_size=2,
+        confidence_level=0.95,
+        bootstrap_samples=50,
+        random_state=42,
+        dataset_split="test",
     )
 
     assert effects.loc[0, "target"] == "success"
     assert effects.loc[0, "adjusted_effect"] == 1.0
+    assert effects.loc[0, "dataset_split"] == "test"
+    assert effects.loc[0, "effect_direction"] == "helps"
+    assert effects.loc[0, "effect_ci_lower"] <= effects.loc[0, "effect_ci_upper"]
 
 
 def test_defensive_reaction_overall_filters_to_tracking_rows() -> None:
@@ -147,7 +154,13 @@ def test_defensive_reaction_overall_filters_to_tracking_rows() -> None:
         response_columns=["tracking_skill_separation_gain"],
         control_columns=["down_bucket", "distance_bucket"],
         minimum_size=2,
+        confidence_level=0.95,
+        bootstrap_samples=50,
+        random_state=42,
+        dataset_split="test",
+        sparse_tracking_threshold=0.8,
     )
 
     assert effects.loc[0, "response_column"] == "tracking_skill_separation_gain"
     assert effects.loc[0, "n_obs"] == 2
+    assert bool(effects.loc[0, "tracking_is_sparse"]) is True

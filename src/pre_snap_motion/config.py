@@ -271,6 +271,9 @@ class EvaluationConfig:
     motion_effect_minimum_size: int = 100
     defensive_response_minimum_size: int = 75
     sparse_tracking_threshold: float = 0.25
+    effect_confidence_level: float = 0.95
+    effect_bootstrap_samples: int = 200
+    effect_random_state: int = 42
 
 
 @dataclass(slots=True)
@@ -339,6 +342,10 @@ class ProjectConfig:
             raise ValueError(
                 "experiment.feature_sets must include 'context_plus_motion' when defensive response analysis is enabled."
             )
+        if not 0 < self.evaluation.effect_confidence_level < 1:
+            raise ValueError("effect_confidence_level must be between 0 and 1.")
+        if self.evaluation.effect_bootstrap_samples < 10:
+            raise ValueError("effect_bootstrap_samples must be at least 10.")
 
 
 def load_config(path: str | Path) -> ProjectConfig:
@@ -475,6 +482,15 @@ def load_config(path: str | Path) -> ProjectConfig:
             ),
             sparse_tracking_threshold=_value(
                 evaluation_data, "sparse_tracking_threshold", 0.25
+            ),
+            effect_confidence_level=_value(
+                evaluation_data, "effect_confidence_level", 0.95
+            ),
+            effect_bootstrap_samples=_value(
+                evaluation_data, "effect_bootstrap_samples", 200
+            ),
+            effect_random_state=_value(
+                evaluation_data, "effect_random_state", 42
             ),
         ),
         experiment=ExperimentConfig(

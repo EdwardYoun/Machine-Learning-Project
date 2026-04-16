@@ -470,31 +470,136 @@ def train_models(dataset: pl.DataFrame, config: ProjectConfig) -> dict[str, Path
     tracking_response_lift_subgroup_frame = tracking_response_lift_subgroups(
         subgroup_metrics_frame
     )
-    motion_effect_frame = motion_effect_overall(
-        frame=frame,
+    motion_effect_frames = [
+        motion_effect_overall(
+        frame=split.test,
         target_columns=target_columns,
         control_columns=config.evaluation.motion_effect_control_columns,
         minimum_size=config.evaluation.motion_effect_minimum_size,
+        confidence_level=config.evaluation.effect_confidence_level,
+        bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+        random_state=config.evaluation.effect_random_state,
+        dataset_split="test",
+        )
+    ]
+    if split.validation is not None and not split.validation.empty:
+        motion_effect_frames.append(
+            motion_effect_overall(
+                frame=split.validation,
+                target_columns=target_columns,
+                control_columns=config.evaluation.motion_effect_control_columns,
+                minimum_size=config.evaluation.motion_effect_minimum_size,
+                confidence_level=config.evaluation.effect_confidence_level,
+                bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+                random_state=config.evaluation.effect_random_state,
+                dataset_split="validation",
+            )
+        )
+    motion_effect_frame = (
+        pd.concat([frame for frame in motion_effect_frames if not frame.empty], ignore_index=True)
+        if motion_effect_frames
+        else pd.DataFrame()
     )
-    motion_effect_subgroup_frame = motion_effect_subgroups(
-        frame=frame,
+
+    motion_effect_subgroup_frames = [
+        motion_effect_subgroups(
+        frame=split.test,
         target_columns=target_columns,
         control_columns=config.evaluation.motion_effect_control_columns,
         subgroup_columns=config.evaluation.subgroup_columns,
         minimum_size=config.evaluation.motion_effect_minimum_size,
+        confidence_level=config.evaluation.effect_confidence_level,
+        bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+        random_state=config.evaluation.effect_random_state,
+        dataset_split="test",
+        )
+    ]
+    if split.validation is not None and not split.validation.empty:
+        motion_effect_subgroup_frames.append(
+            motion_effect_subgroups(
+                frame=split.validation,
+                target_columns=target_columns,
+                control_columns=config.evaluation.motion_effect_control_columns,
+                subgroup_columns=config.evaluation.subgroup_columns,
+                minimum_size=config.evaluation.motion_effect_minimum_size,
+                confidence_level=config.evaluation.effect_confidence_level,
+                bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+                random_state=config.evaluation.effect_random_state,
+                dataset_split="validation",
+            )
+        )
+    motion_effect_subgroup_frame = (
+        pd.concat([frame for frame in motion_effect_subgroup_frames if not frame.empty], ignore_index=True)
+        if motion_effect_subgroup_frames
+        else pd.DataFrame()
     )
-    defensive_reaction_frame = defensive_reaction_overall(
-        frame=frame,
+
+    defensive_reaction_frames = [
+        defensive_reaction_overall(
+        frame=split.test,
         response_columns=config.features.tracking_response_columns,
         control_columns=config.evaluation.motion_effect_control_columns,
         minimum_size=config.evaluation.defensive_response_minimum_size,
+        confidence_level=config.evaluation.effect_confidence_level,
+        bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+        random_state=config.evaluation.effect_random_state,
+        dataset_split="test",
+        sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
+        )
+    ]
+    if split.validation is not None and not split.validation.empty:
+        defensive_reaction_frames.append(
+            defensive_reaction_overall(
+                frame=split.validation,
+                response_columns=config.features.tracking_response_columns,
+                control_columns=config.evaluation.motion_effect_control_columns,
+                minimum_size=config.evaluation.defensive_response_minimum_size,
+                confidence_level=config.evaluation.effect_confidence_level,
+                bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+                random_state=config.evaluation.effect_random_state,
+                dataset_split="validation",
+                sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
+            )
+        )
+    defensive_reaction_frame = (
+        pd.concat([frame for frame in defensive_reaction_frames if not frame.empty], ignore_index=True)
+        if defensive_reaction_frames
+        else pd.DataFrame()
     )
-    defensive_reaction_subgroup_frame = defensive_reaction_subgroups(
-        frame=frame,
+
+    defensive_reaction_subgroup_frames = [
+        defensive_reaction_subgroups(
+        frame=split.test,
         response_columns=config.features.tracking_response_columns,
         control_columns=config.evaluation.motion_effect_control_columns,
         subgroup_columns=config.evaluation.subgroup_columns,
         minimum_size=config.evaluation.defensive_response_minimum_size,
+        confidence_level=config.evaluation.effect_confidence_level,
+        bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+        random_state=config.evaluation.effect_random_state,
+        dataset_split="test",
+        sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
+        )
+    ]
+    if split.validation is not None and not split.validation.empty:
+        defensive_reaction_subgroup_frames.append(
+            defensive_reaction_subgroups(
+                frame=split.validation,
+                response_columns=config.features.tracking_response_columns,
+                control_columns=config.evaluation.motion_effect_control_columns,
+                subgroup_columns=config.evaluation.subgroup_columns,
+                minimum_size=config.evaluation.defensive_response_minimum_size,
+                confidence_level=config.evaluation.effect_confidence_level,
+                bootstrap_samples=config.evaluation.effect_bootstrap_samples,
+                random_state=config.evaluation.effect_random_state,
+                dataset_split="validation",
+                sparse_tracking_threshold=config.evaluation.sparse_tracking_threshold,
+            )
+        )
+    defensive_reaction_subgroup_frame = (
+        pd.concat([frame for frame in defensive_reaction_subgroup_frames if not frame.empty], ignore_index=True)
+        if defensive_reaction_subgroup_frames
+        else pd.DataFrame()
     )
     dataset_summary_payload = dataset_summary(
         frame=frame,

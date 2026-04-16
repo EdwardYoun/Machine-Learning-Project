@@ -121,12 +121,15 @@ def _print_metric_summary(config: ProjectConfig) -> None:
     metrics_dir = project_artifacts_dir(config) / "metrics"
     dataset_summary_path = metrics_dir / "dataset_summary.json"
     best_models_path = metrics_dir / "best_models.csv"
+    motion_effect_path = metrics_dir / "motion_effect_overall.csv"
+    defensive_reaction_path = metrics_dir / "defensive_reaction_overall.csv"
 
     if dataset_summary_path.exists():
         payload = json.loads(dataset_summary_path.read_text(encoding="utf-8"))
         print("Dataset summary:")
         print(
             f"  - rows: train {payload.get('train_rows', 0):,}, "
+            f"validation {payload.get('validation_rows', 0):,}, "
             f"test {payload.get('test_rows', 0):,}, total {payload.get('total_rows', 0):,}"
         )
         if "train_tracking_coverage_rate" in payload:
@@ -165,6 +168,34 @@ def _print_metric_summary(config: ProjectConfig) -> None:
                 f"  - {slice_prefix}{row['task']} / {row['target']}: "
                 f"{row['model_name']} with {row['feature_set']}"
             )
+
+    if motion_effect_path.exists():
+        motion_effect = pd.read_csv(motion_effect_path)
+        motion_effect = motion_effect.loc[motion_effect["dataset_split"] == "test"]
+        if not motion_effect.empty:
+            print("Motion effect:")
+            for _, row in motion_effect.iterrows():
+                print(
+                    f"  - {row['target']}: {row['effect_direction']} "
+                    f"({row['adjusted_effect']:.4f}, CI {row['effect_ci_lower']:.4f} to {row['effect_ci_upper']:.4f})"
+                )
+
+    if defensive_reaction_path.exists():
+        defensive_reaction = pd.read_csv(defensive_reaction_path)
+        defensive_reaction = defensive_reaction.loc[
+            defensive_reaction["dataset_split"] == "test"
+        ]
+        if not defensive_reaction.empty:
+            print("Defensive response highlights:")
+            top_rows = defensive_reaction.reindex(
+                defensive_reaction["adjusted_effect"].abs().sort_values(ascending=False).index
+            ).head(3)
+            for _, row in top_rows.iterrows():
+                sparse_suffix = " (directional)" if row.get("tracking_is_sparse") else ""
+                print(
+                    f"  - {row['response_column']}: {row['adjusted_effect']:.4f} "
+                    f"CI {row['effect_ci_lower']:.4f} to {row['effect_ci_upper']:.4f}{sparse_suffix}"
+                )
 
 
 def run_config(

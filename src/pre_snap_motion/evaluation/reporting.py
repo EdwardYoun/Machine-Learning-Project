@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from pre_snap_motion.evaluation.metrics import classification_metrics, regression_metrics
@@ -333,6 +334,9 @@ def _adjusted_motion_effect_rows(
     value_column: str,
     control_columns: list[str],
     minimum_size: int,
+    confidence_level: float,
+    bootstrap_samples: int,
+    random_state: int,
     group_column: str | None = None,
 ) -> list[dict[str, Any]]:
     if "is_motion_flag" not in frame.columns or value_column not in frame.columns:
@@ -380,6 +384,15 @@ def _adjusted_motion_effect_rows(
 
         subgroup_frame = pd.DataFrame(subgroup_rows)
         weights = subgroup_frame["n_obs"] / subgroup_frame["n_obs"].sum()
+        adjusted_effect = float(
+            ((subgroup_frame["motion_mean"] - subgroup_frame["no_motion_mean"]) * weights).sum()
+        )
+        ci_lower, ci_upper = _bootstrap_effect_interval(
+            subgroup_frame=subgroup_frame,
+            confidence_level=confidence_level,
+            bootstrap_samples=bootstrap_samples,
+            random_state=random_state,
+        )
         row: dict[str, Any] = {
             "n_context_groups": int(len(subgroup_frame)),
             "n_obs": int(subgroup_frame["n_obs"].sum()),
@@ -387,10 +400,11 @@ def _adjusted_motion_effect_rows(
             "no_motion_rows": int(subgroup_frame["no_motion_rows"].sum()),
             "adjusted_motion_mean": float((subgroup_frame["motion_mean"] * weights).sum()),
             "adjusted_no_motion_mean": float((subgroup_frame["no_motion_mean"] * weights).sum()),
+            "adjusted_effect": adjusted_effect,
+            "effect_ci_lower": ci_lower,
+            "effect_ci_upper": ci_upper,
+            "effect_direction": _effect_direction(adjusted_effect, ci_lower, ci_upper),
         }
-        row["adjusted_effect"] = (
-            row["adjusted_motion_mean"] - row["adjusted_no_motion_mean"]
-        )
         if group_column is not None and group_column in outer_frame.columns:
             row["group_column"] = group_column
             row["group_value"] = outer_value
@@ -398,11 +412,49 @@ def _adjusted_motion_effect_rows(
     return rows
 
 
+def _bootstrap_effect_interval(
+    subgroup_frame: pd.DataFrame,
+    confidence_level: float,
+    bootstrap_samples: int,
+    random_state: int,
+) -> tuple[float, float]:
+    if subgroup_frame.empty:
+        return (float("nan"), float("nan"))
+    rng = np.random.default_rng(random_state)
+    effects = subgroup_frame["motion_mean"].to_numpy() - subgroup_frame["no_motion_mean"].to_numpy()
+    weights = subgroup_frame["n_obs"].to_numpy(dtype=float)
+    normalized = weights / weights.sum()
+    bootstrap_effects: list[float] = []
+    for _ in range(bootstrap_samples):
+        sample_idx = rng.choice(len(subgroup_frame), size=len(subgroup_frame), replace=True, p=normalized)
+        sample_effects = effects[sample_idx]
+        sample_weights = normalized[sample_idx]
+        sample_weights = sample_weights / sample_weights.sum()
+        bootstrap_effects.append(float((sample_effects * sample_weights).sum()))
+    alpha = (1 - confidence_level) / 2
+    return (
+        float(np.quantile(bootstrap_effects, alpha)),
+        float(np.quantile(bootstrap_effects, 1 - alpha)),
+    )
+
+
+def _effect_direction(effect: float, ci_lower: float, ci_upper: float) -> str:
+    if ci_lower > 0:
+        return "helps"
+    if ci_upper < 0:
+        return "hurts"
+    return "unclear"
+
+
 def motion_effect_overall(
     frame: pd.DataFrame,
     target_columns: dict[str, str],
     control_columns: list[str],
     minimum_size: int,
+    confidence_level: float,
+    bootstrap_samples: int,
+    random_state: int,
+    dataset_split: str,
 ) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for target_name, column_name in target_columns.items():
@@ -411,9 +463,13 @@ def motion_effect_overall(
             value_column=column_name,
             control_columns=control_columns,
             minimum_size=minimum_size,
+            confidence_level=confidence_level,
+            bootstrap_samples=bootstrap_samples,
+            random_state=random_state,
         ):
             row["target"] = target_name
             row["target_column"] = column_name
+            row["dataset_split"] = dataset_split
             rows.append(row)
     return pd.DataFrame(rows)
 
@@ -424,6 +480,10 @@ def motion_effect_subgroups(
     control_columns: list[str],
     subgroup_columns: list[str],
     minimum_size: int,
+    confidence_level: float,
+    bootstrap_samples: int,
+    random_state: int,
+    dataset_split: str,
 ) -> pd.DataFrame:
     rows: list[dict[str, Any]] = []
     for target_name, column_name in target_columns.items():
@@ -433,10 +493,14 @@ def motion_effect_subgroups(
                 value_column=column_name,
                 control_columns=[column for column in control_columns if column != subgroup_column],
                 minimum_size=minimum_size,
+                confidence_level=confidence_level,
+                bootstrap_samples=bootstrap_samples,
+                random_state=random_state,
                 group_column=subgroup_column,
             ):
                 row["target"] = target_name
                 row["target_column"] = column_name
+                row["dataset_split"] = dataset_split
                 rows.append(row)
     return pd.DataFrame(rows)
 
@@ -446,6 +510,11 @@ def defensive_reaction_overall(
     response_columns: list[str],
     control_columns: list[str],
     minimum_size: int,
+    confidence_level: float,
+    bootstrap_samples: int,
+    random_state: int,
+    dataset_split: str,
+    sparse_tracking_threshold: float,
 ) -> pd.DataFrame:
     if "has_tracking_data" not in frame.columns:
         return pd.DataFrame()
@@ -461,8 +530,16 @@ def defensive_reaction_overall(
             value_column=column_name,
             control_columns=control_columns,
             minimum_size=minimum_size,
+            confidence_level=confidence_level,
+            bootstrap_samples=bootstrap_samples,
+            random_state=random_state,
         ):
             row["response_column"] = column_name
+            row["dataset_split"] = dataset_split
+            row["tracking_coverage_rate"] = float(
+                pd.to_numeric(frame["has_tracking_data"], errors="coerce").fillna(0).mean()
+            )
+            row["tracking_is_sparse"] = row["tracking_coverage_rate"] < sparse_tracking_threshold
             rows.append(row)
     return pd.DataFrame(rows)
 
@@ -473,6 +550,11 @@ def defensive_reaction_subgroups(
     control_columns: list[str],
     subgroup_columns: list[str],
     minimum_size: int,
+    confidence_level: float,
+    bootstrap_samples: int,
+    random_state: int,
+    dataset_split: str,
+    sparse_tracking_threshold: float,
 ) -> pd.DataFrame:
     if "has_tracking_data" not in frame.columns:
         return pd.DataFrame()
@@ -489,9 +571,17 @@ def defensive_reaction_subgroups(
                 value_column=column_name,
                 control_columns=[column for column in control_columns if column != subgroup_column],
                 minimum_size=minimum_size,
+                confidence_level=confidence_level,
+                bootstrap_samples=bootstrap_samples,
+                random_state=random_state,
                 group_column=subgroup_column,
             ):
                 row["response_column"] = column_name
+                row["dataset_split"] = dataset_split
+                row["tracking_coverage_rate"] = float(
+                    pd.to_numeric(frame["has_tracking_data"], errors="coerce").fillna(0).mean()
+                )
+                row["tracking_is_sparse"] = row["tracking_coverage_rate"] < sparse_tracking_threshold
                 rows.append(row)
     return pd.DataFrame(rows)
 
@@ -575,10 +665,11 @@ def proposal_summary_markdown(
         lines.append("")
         lines.append("## Overall Motion Effect")
         for _, row in motion_effect_frame.iterrows():
-            direction = "helps" if row["adjusted_effect"] > 0 else "hurts"
             lines.append(
-                f"- {row['target']}: motion {direction} by {row['adjusted_effect']:.4f} "
-                f"after context controls ({int(row['n_obs']):,} rows across {int(row['n_context_groups'])} groups)."
+                f"- {row['dataset_split']} / {row['target']}: motion {row['effect_direction']} by "
+                f"{row['adjusted_effect']:.4f} "
+                f"(CI {row['effect_ci_lower']:.4f} to {row['effect_ci_upper']:.4f}) after context controls "
+                f"({int(row['n_obs']):,} rows across {int(row['n_context_groups'])} groups)."
             )
 
     if not best_models_frame.empty:
@@ -609,9 +700,10 @@ def proposal_summary_markdown(
             defensive_reaction_frame["adjusted_effect"].abs().sort_values(ascending=False).index
         ).head(5)
         for _, row in highlight.iterrows():
+            sparse_suffix = " (directional only)" if row.get("tracking_is_sparse") else ""
             lines.append(
-                f"- {row['response_column']}: adjusted motion effect={row['adjusted_effect']:.4f} "
-                f"across {int(row['n_obs']):,} tracking rows."
+                f"- {row['dataset_split']} / {row['response_column']}: adjusted motion effect={row['adjusted_effect']:.4f} "
+                f"(CI {row['effect_ci_lower']:.4f} to {row['effect_ci_upper']:.4f}) across {int(row['n_obs']):,} tracking rows{sparse_suffix}."
             )
 
     return "\n".join(lines) + "\n"
