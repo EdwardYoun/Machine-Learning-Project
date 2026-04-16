@@ -35,3 +35,9 @@ def test_load_config_reads_v2_experiment_values() -> None:
         "full",
     ]
     assert config.evaluation.effect_bootstrap_samples == 200
+    assert config.models.classification_calibration_method == "sigmoid"
+    assert config.models.target_classification_models["success"] == [
+        "logistic_regression",
+        "gradient_boosting",
+    ]
+    assert config.evaluation.threshold_selection_metric == "balanced_accuracy"

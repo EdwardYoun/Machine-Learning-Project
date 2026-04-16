@@ -40,14 +40,32 @@ models:
     - logistic_regression
     - random_forest
     - gradient_boosting
+  target_classification_models:
+    success:
+      - logistic_regression
+      - gradient_boosting
+    explosive:
+      - logistic_regression
+      - gradient_boosting
+      - random_forest
+    completion:
+      - logistic_regression
+      - gradient_boosting
   regression_models:
     - ridge_regression
     - random_forest
     - gradient_boosting
+  target_regression_models:
+    epa:
+      - ridge_regression
+      - gradient_boosting
+  classification_calibration_method: "sigmoid"
   random_state: 42
 
 evaluation:
   classification_threshold: 0.5
+  classification_threshold_grid: [0.3, 0.4, 0.5, 0.6, 0.7]
+  threshold_selection_metric: "balanced_accuracy"
   calibration_bins: 10
   motion_effect_control_columns:
     - down_bucket

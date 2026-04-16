@@ -58,6 +58,7 @@ The metrics directory now includes:
 
 - `overall_metrics.csv` for held-out target/model/feature-set combinations
 - `validation_metrics.csv` for validation-based model selection
+- `selected_models.csv` for the compact validation-selected holdout winners
 - an `evaluation_slice` column so tracking experiments can report both `all` plays and `tracking_only` rows
 - `motion_effect_overall.csv` and `motion_effect_subgroups.csv` for context-adjusted motion impact estimates
 - `motion_lift_overall.csv` for `context_plus_motion` vs `context_only` lift
@@ -107,7 +108,7 @@ Important caveat:
 1. Run `pre-snap-motion fetch` to cache raw nflverse and FTN data locally.
 2. Run `pre-snap-motion prepare` to build the pass-play modeling table.
 3. Run `pre-snap-motion train` to fit baseline and nonlinear models with validation-aware selection.
-4. Inspect `artifacts/<project_name>/metrics/validation_metrics.csv` and `best_models.csv` for model comparisons.
+4. Inspect `artifacts/<project_name>/metrics/validation_metrics.csv`, `selected_models.csv`, and `best_models.csv` for model comparisons.
 5. Inspect `motion_effect_overall.csv`, `motion_lift_overall.csv`, and `defensive_reaction_overall.csv` to see where motion helps, hurts, or changes defensive behavior.
 6. Read `artifacts/<project_name>/metrics/proposal_summary.md` for a concise write-up of the current experiment.
 7. Start with `configs/motion_value_v2.yaml` for the upgraded framework.

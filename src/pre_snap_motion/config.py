@@ -254,12 +254,19 @@ class ModelsConfig:
             "gradient_boosting",
         ]
     )
+    target_classification_models: dict[str, list[str]] = field(default_factory=dict)
+    target_regression_models: dict[str, list[str]] = field(default_factory=dict)
+    classification_calibration_method: str = "none"
     random_state: int = 42
 
 
 @dataclass(slots=True)
 class EvaluationConfig:
     classification_threshold: float = 0.5
+    classification_threshold_grid: list[float] = field(
+        default_factory=lambda: [0.3, 0.4, 0.5, 0.6, 0.7]
+    )
+    threshold_selection_metric: str = "balanced_accuracy"
     calibration_bins: int = 10
     motion_effect_control_columns: list[str] = field(
         default_factory=lambda: ["down_bucket", "distance_bucket", "field_zone", "score_state"]
@@ -305,6 +312,8 @@ class ProjectConfig:
         valid_split_strategies = {"explicit", "rolling_origin"}
         valid_experiment_modes = {"balanced_research", "inference_first", "prediction_first"}
         valid_feature_sets = {"context_only", "context_plus_motion", "full"}
+        valid_calibration_methods = {"none", "sigmoid", "isotonic"}
+        valid_threshold_metrics = {"balanced_accuracy", "f1"}
 
         overlap = set(self.split.train_seasons) & set(self.split.test_seasons)
         if overlap:
@@ -342,6 +351,21 @@ class ProjectConfig:
             raise ValueError(
                 "experiment.feature_sets must include 'context_plus_motion' when defensive response analysis is enabled."
             )
+        if self.models.classification_calibration_method not in valid_calibration_methods:
+            raise ValueError(
+                f"Unknown classification calibration method: {self.models.classification_calibration_method}"
+            )
+        if self.evaluation.threshold_selection_metric not in valid_threshold_metrics:
+            raise ValueError(
+                f"Unknown threshold selection metric: {self.evaluation.threshold_selection_metric}"
+            )
+        if not self.evaluation.classification_threshold_grid:
+            raise ValueError("classification_threshold_grid must not be empty.")
+        if any(
+            threshold <= 0 or threshold >= 1
+            for threshold in self.evaluation.classification_threshold_grid
+        ):
+            raise ValueError("classification_threshold_grid values must be between 0 and 1.")
         if not 0 < self.evaluation.effect_confidence_level < 1:
             raise ValueError("effect_confidence_level must be between 0 and 1.")
         if self.evaluation.effect_bootstrap_samples < 10:
@@ -454,11 +478,28 @@ def load_config(path: str | Path) -> ProjectConfig:
             regression_models=_value(
                 models_data, "regression_models", ModelsConfig().regression_models
             ),
+            target_classification_models=_value(
+                models_data, "target_classification_models", {}
+            ),
+            target_regression_models=_value(
+                models_data, "target_regression_models", {}
+            ),
+            classification_calibration_method=_value(
+                models_data, "classification_calibration_method", "none"
+            ),
             random_state=_value(models_data, "random_state", 42),
         ),
         evaluation=EvaluationConfig(
             classification_threshold=_value(
                 evaluation_data, "classification_threshold", 0.5
+            ),
+            classification_threshold_grid=_value(
+                evaluation_data,
+                "classification_threshold_grid",
+                EvaluationConfig().classification_threshold_grid,
+            ),
+            threshold_selection_metric=_value(
+                evaluation_data, "threshold_selection_metric", "balanced_accuracy"
             ),
             calibration_bins=_value(evaluation_data, "calibration_bins", 10),
             motion_effect_control_columns=_value(

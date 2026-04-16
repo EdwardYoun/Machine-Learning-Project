@@ -121,6 +121,7 @@ def _print_metric_summary(config: ProjectConfig) -> None:
     metrics_dir = project_artifacts_dir(config) / "metrics"
     dataset_summary_path = metrics_dir / "dataset_summary.json"
     best_models_path = metrics_dir / "best_models.csv"
+    selected_models_path = metrics_dir / "selected_models.csv"
     motion_effect_path = metrics_dir / "motion_effect_overall.csv"
     defensive_reaction_path = metrics_dir / "defensive_reaction_overall.csv"
 
@@ -168,6 +169,38 @@ def _print_metric_summary(config: ProjectConfig) -> None:
                 f"  - {slice_prefix}{row['task']} / {row['target']}: "
                 f"{row['model_name']} with {row['feature_set']}"
             )
+
+    if selected_models_path.exists():
+        selected_models = pd.read_csv(selected_models_path)
+        if not selected_models.empty:
+            print("Selected holdout models:")
+            columns = [
+                column
+                for column in [
+                    "evaluation_slice",
+                    "task",
+                    "target",
+                    "model_name",
+                    "feature_set",
+                    "selected_threshold",
+                ]
+                if column in selected_models.columns
+            ]
+            for _, row in selected_models.loc[:, columns].iterrows():
+                slice_prefix = (
+                    f"[{row['evaluation_slice']}] "
+                    if "evaluation_slice" in row and pd.notna(row["evaluation_slice"])
+                    else ""
+                )
+                threshold_suffix = (
+                    f", threshold {row['selected_threshold']:.2f}"
+                    if "selected_threshold" in row and pd.notna(row["selected_threshold"])
+                    else ""
+                )
+                print(
+                    f"  - {slice_prefix}{row['task']} / {row['target']}: "
+                    f"{row['model_name']} with {row['feature_set']}{threshold_suffix}"
+                )
 
     if motion_effect_path.exists():
         motion_effect = pd.read_csv(motion_effect_path)
