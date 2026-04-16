@@ -286,6 +286,16 @@ class EvaluationConfig:
 
 
 @dataclass(slots=True)
+class ComparisonConfig:
+    primary_target: str = "completion"
+    rank_targets: list[str] = field(
+        default_factory=lambda: ["completion", "explosive", "success", "epa"]
+    )
+    classification_metric: str = "balanced_accuracy"
+    regression_metric: str = "rmse"
+
+
+@dataclass(slots=True)
 class ExperimentConfig:
     mode: str = "balanced_research"
     enable_motion_effect_analysis: bool = True
@@ -306,6 +316,7 @@ class ProjectConfig:
     split: SplitConfig = field(default_factory=SplitConfig)
     models: ModelsConfig = field(default_factory=ModelsConfig)
     evaluation: EvaluationConfig = field(default_factory=EvaluationConfig)
+    comparison: ComparisonConfig = field(default_factory=ComparisonConfig)
     experiment: ExperimentConfig = field(default_factory=ExperimentConfig)
 
     def validate(self) -> None:
@@ -382,6 +393,29 @@ class ProjectConfig:
             raise ValueError(
                 f"Unknown regression selection metric: {self.evaluation.regression_selection_metric}"
             )
+        valid_comparison_targets = (
+            self.targets.classification_targets + self.targets.regression_targets
+        )
+        if self.comparison.primary_target not in valid_comparison_targets:
+            raise ValueError(
+                f"Unknown comparison primary target: {self.comparison.primary_target}"
+            )
+        unknown_rank_targets = set(self.comparison.rank_targets) - set(
+            valid_comparison_targets
+        )
+        if unknown_rank_targets:
+            raise ValueError(
+                f"Unknown comparison rank targets: {sorted(unknown_rank_targets)}"
+            )
+        if self.comparison.classification_metric not in valid_classification_selection_metrics:
+            raise ValueError(
+                "Unknown comparison classification metric: "
+                f"{self.comparison.classification_metric}"
+            )
+        if self.comparison.regression_metric not in valid_regression_selection_metrics:
+            raise ValueError(
+                f"Unknown comparison regression metric: {self.comparison.regression_metric}"
+            )
         if not self.evaluation.classification_threshold_grid:
             raise ValueError("classification_threshold_grid must not be empty.")
         if any(
@@ -408,6 +442,7 @@ def load_config(path: str | Path) -> ProjectConfig:
     split_data = payload.get("split", {})
     models_data = payload.get("models", {})
     evaluation_data = payload.get("evaluation", {})
+    comparison_data = payload.get("comparison", {})
     experiment_data = payload.get("experiment", {})
 
     config = ProjectConfig(
@@ -562,6 +597,18 @@ def load_config(path: str | Path) -> ProjectConfig:
             effect_random_state=_value(
                 evaluation_data, "effect_random_state", 42
             ),
+        ),
+        comparison=ComparisonConfig(
+            primary_target=_value(comparison_data, "primary_target", "completion"),
+            rank_targets=_value(
+                comparison_data,
+                "rank_targets",
+                ComparisonConfig().rank_targets,
+            ),
+            classification_metric=_value(
+                comparison_data, "classification_metric", "balanced_accuracy"
+            ),
+            regression_metric=_value(comparison_data, "regression_metric", "rmse"),
         ),
         experiment=ExperimentConfig(
             mode=_value(experiment_data, "mode", "balanced_research"),

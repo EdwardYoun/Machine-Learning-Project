@@ -41,3 +41,10 @@ def test_load_config_reads_v2_experiment_values() -> None:
         "gradient_boosting",
     ]
     assert config.evaluation.threshold_selection_metric == "balanced_accuracy"
+    assert config.comparison.primary_target == "completion"
+    assert config.comparison.rank_targets == [
+        "completion",
+        "explosive",
+        "success",
+        "epa",
+    ]

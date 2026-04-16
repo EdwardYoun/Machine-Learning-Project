@@ -1,4 +1,4 @@
-project_name: "motion-value-v2"
+project_name: "motion-value-v2-inference"
 
 paths:
   raw_dir: "data/raw"
@@ -6,7 +6,7 @@ paths:
   artifacts_dir: "artifacts"
 
 experiment:
-  mode: "balanced_research"
+  mode: "inference_first"
   enable_motion_effect_analysis: true
   enable_defensive_response_analysis: true
   feature_sets:
@@ -38,28 +38,19 @@ split:
 models:
   classification_models:
     - logistic_regression
-    - random_forest
-    - gradient_boosting
   target_classification_models:
     success:
       - logistic_regression
-      - gradient_boosting
     explosive:
       - logistic_regression
-      - gradient_boosting
-      - random_forest
     completion:
       - logistic_regression
-      - gradient_boosting
   regression_models:
     - ridge_regression
-    - random_forest
-    - gradient_boosting
   target_regression_models:
     epa:
       - ridge_regression
-      - gradient_boosting
-  classification_calibration_method: "sigmoid"
+  classification_calibration_method: "none"
   random_state: 42
 
 evaluation:

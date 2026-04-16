@@ -1,4 +1,4 @@
-project_name: "motion-value-v2"
+project_name: "motion-value-v2-offense-only"
 
 paths:
   raw_dir: "data/raw"
@@ -8,7 +8,7 @@ paths:
 experiment:
   mode: "balanced_research"
   enable_motion_effect_analysis: true
-  enable_defensive_response_analysis: true
+  enable_defensive_response_analysis: false
   feature_sets:
     - context_only
     - context_plus_motion
@@ -21,12 +21,7 @@ data:
   season_type: "REG"
 
 tracking:
-  enabled: true
-  input_globs:
-    - "train/input_*.csv"
-  input_files:
-    - "test_input.csv"
-  cache_file: "tracking_play_features_2023_2024_v2.parquet"
+  enabled: false
 
 split:
   strategy: "rolling_origin"
@@ -53,7 +48,6 @@ models:
       - gradient_boosting
   regression_models:
     - ridge_regression
-    - random_forest
     - gradient_boosting
   target_regression_models:
     epa:

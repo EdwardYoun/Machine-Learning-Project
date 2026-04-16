@@ -1,4 +1,4 @@
-project_name: "motion-value-v2"
+project_name: "motion-value-v2-no-calibration"
 
 paths:
   raw_dir: "data/raw"
@@ -59,7 +59,7 @@ models:
     epa:
       - ridge_regression
       - gradient_boosting
-  classification_calibration_method: "sigmoid"
+  classification_calibration_method: "none"
   random_state: 42
 
 evaluation:

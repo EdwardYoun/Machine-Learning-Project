@@ -43,6 +43,10 @@ pre-snap-motion train --config configs/default.yaml
 pre-snap-motion run --config configs/default.yaml
 pre-snap-motion run --config configs/tracking_experiment.yaml
 pre-snap-motion run --config configs/motion_value_v2.yaml
+pre-snap-motion run --config configs/motion_value_v2_inference.yaml
+pre-snap-motion run --config configs/motion_value_v2_no_calibration.yaml
+pre-snap-motion run --config configs/motion_value_v2_offense_only.yaml
+python scripts/run_experiment.py --command compare --config configs/motion_value_v2.yaml --config configs/motion_value_v2_inference.yaml --config configs/motion_value_v2_no_calibration.yaml --config configs/motion_value_v2_offense_only.yaml
 python scripts/run_experiment.py --command run --config configs/tracking_experiment.yaml
 python scripts/run_experiment.py --command inspect --config configs/tracking_experiment.yaml
 ```
@@ -71,7 +75,17 @@ The centralized runner can also execute multiple configs or inspect tracking ava
 ```powershell
 python scripts/run_experiment.py --command inspect --config configs/tracking_experiment.yaml
 python scripts/run_experiment.py --command run --all-configs
+python scripts/run_experiment.py --command compare --config configs/motion_value_v2.yaml --config configs/motion_value_v2_inference.yaml --config configs/motion_value_v2_no_calibration.yaml --config configs/motion_value_v2_offense_only.yaml
 ```
+
+The comparison workflow is intended to decide which V2 experiment deserves a full retrain:
+
+- `configs/motion_value_v2.yaml` is the default balanced-research candidate.
+- `configs/motion_value_v2_inference.yaml` constrains the stack to interpretable logistic/ridge baselines.
+- `configs/motion_value_v2_no_calibration.yaml` isolates the value of classifier calibration.
+- `configs/motion_value_v2_offense_only.yaml` removes tracking so the top-line offensive motion question can be evaluated without defensive-response features.
+
+`compare` ranks completed configs by the configured primary target, summarizes how many ranked targets motion appears to help or hurt, and notes whether defensive-reaction outputs are reportable or only directional.
 
 ## Tracking Integration
 
