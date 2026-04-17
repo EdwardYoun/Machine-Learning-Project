@@ -1,3 +1,5 @@
+# Legacy reference config kept for comparison only.
+# The final project results use `configs/motion_value_v2_final.yaml`.
 project_name: "reading-the-defense-tracking"
 
 paths:

@@ -12,10 +12,10 @@
 Use the centralized runner for repeatable experiments:
 
 ```powershell
-python scripts/run_experiment.py --command inspect --config configs/tracking_experiment.yaml
-python scripts/run_experiment.py --command prepare --config configs/tracking_experiment.yaml
-python scripts/run_experiment.py --command train --config configs/tracking_experiment.yaml
-python scripts/run_experiment.py --command run --config configs/quickstart.yaml
+python scripts/run_experiment.py --command inspect --config configs/motion_value_v2_final.yaml
+python scripts/run_experiment.py --command prepare --config configs/motion_value_v2_final.yaml
+python scripts/run_experiment.py --command train --config configs/motion_value_v2_final.yaml
+python scripts/run_experiment.py --command compare --config configs/motion_value_v2_pilot.yaml --config configs/motion_value_v2_pilot_no_calibration.yaml --config configs/motion_value_v2_pilot_inference.yaml --config configs/motion_value_v2_pilot_offense_only.yaml
 ```
 
 For lightweight verification:
@@ -34,6 +34,8 @@ pytest
 
 - Keep proposal-facing experiment configs in `configs/`.
 - Keep reusable pipeline code in `src/pre_snap_motion/`.
+- Treat `configs/motion_value_v2_final.yaml` as the final submission config.
+- Treat `artifacts/metrics/` as the tracked GitHub snapshot of the final results.
 - Do not commit local datasets, cached artifacts, or local Python runtimes.
 - Treat tracking conclusions carefully when holdout coverage is sparse.
 

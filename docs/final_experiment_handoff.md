@@ -6,7 +6,8 @@ This document is the shortest path from repository to slides/report.
 
 - Final config: `configs/motion_value_v2_final.yaml`
 - Final processed dataset: `data/processed/motion-value-v2-final_passing_motion_modeling_dataset.parquet`
-- Final metrics directory: `artifacts/motion-value-v2-final/metrics/`
+- Final tracked metrics directory: `artifacts/metrics/`
+- Full local metrics directory: `artifacts/motion-value-v2-final/metrics/`
 
 Run order used for the final experiment:
 
@@ -37,33 +38,33 @@ These are the files most useful for the report and slides.
 
 ### Executive summary
 
-- `artifacts/motion-value-v2-final/metrics/proposal_summary.md`
-- `artifacts/motion-value-v2-final/metrics/dataset_summary.json`
+- `artifacts/metrics/proposal_summary.md`
+- `artifacts/metrics/dataset_summary.json`
 
 ### Best-model tables
 
-- `artifacts/motion-value-v2-final/metrics/selected_models.csv`
-- `artifacts/motion-value-v2-final/metrics/best_models.csv`
-- `artifacts/motion-value-v2-final/metrics/validation_metrics.csv`
+- `artifacts/metrics/selected_models.csv`
+- `artifacts/metrics/best_models.csv`
+- `artifacts/metrics/validation_metrics.csv`
 
 ### Motion-effect analysis
 
-- `artifacts/motion-value-v2-final/metrics/motion_effect_overall.csv`
-- `artifacts/motion-value-v2-final/metrics/motion_effect_subgroups.csv`
-- `artifacts/motion-value-v2-final/metrics/motion_lift_overall.csv`
-- `artifacts/motion-value-v2-final/metrics/motion_lift_subgroups.csv`
+- `artifacts/metrics/motion_effect_overall.csv`
+- `artifacts/metrics/motion_effect_subgroups.csv`
+- `artifacts/metrics/motion_lift_overall.csv`
+- `artifacts/metrics/motion_lift_subgroups.csv`
 
 ### Defensive-response analysis
 
-- `artifacts/motion-value-v2-final/metrics/defensive_reaction_overall.csv`
-- `artifacts/motion-value-v2-final/metrics/defensive_reaction_subgroups.csv`
-- `artifacts/motion-value-v2-final/metrics/tracking_response_lift_overall.csv`
+- `artifacts/metrics/defensive_reaction_overall.csv`
+- `artifacts/metrics/defensive_reaction_subgroups.csv`
+- `artifacts/metrics/tracking_response_lift_overall.csv`
 
 ### Coverage and sanity checks
 
-- `artifacts/motion-value-v2-final/metrics/season_summary.csv`
-- `artifacts/motion-value-v2-final/metrics/overall_metrics.csv`
-- `artifacts/motion-value-v2-final/metrics/model_manifest.json`
+- `artifacts/metrics/season_summary.csv`
+- `artifacts/metrics/overall_metrics.csv`
+- `artifacts/metrics/model_manifest.json`
 
 ## Recommended charts
 

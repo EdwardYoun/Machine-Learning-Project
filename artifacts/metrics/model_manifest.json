@@ -1,28 +1,8 @@
 {
   "models": {
-    "classification:completion:context_only:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_completion_context_only_gradient_boosting.pkl",
-    "classification:completion:context_only:logistic_regression": "artifacts/motion-value-v2-final/models/classification_completion_context_only_logistic_regression.pkl",
-    "classification:completion:context_plus_motion:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_completion_context_plus_motion_gradient_boosting.pkl",
-    "classification:completion:context_plus_motion:logistic_regression": "artifacts/motion-value-v2-final/models/classification_completion_context_plus_motion_logistic_regression.pkl",
-    "classification:completion:full:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_completion_full_gradient_boosting.pkl",
-    "classification:completion:full:logistic_regression": "artifacts/motion-value-v2-final/models/classification_completion_full_logistic_regression.pkl",
-    "classification:explosive:context_only:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_explosive_context_only_gradient_boosting.pkl",
-    "classification:explosive:context_only:logistic_regression": "artifacts/motion-value-v2-final/models/classification_explosive_context_only_logistic_regression.pkl",
-    "classification:explosive:context_plus_motion:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_explosive_context_plus_motion_gradient_boosting.pkl",
-    "classification:explosive:context_plus_motion:logistic_regression": "artifacts/motion-value-v2-final/models/classification_explosive_context_plus_motion_logistic_regression.pkl",
-    "classification:explosive:full:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_explosive_full_gradient_boosting.pkl",
-    "classification:explosive:full:logistic_regression": "artifacts/motion-value-v2-final/models/classification_explosive_full_logistic_regression.pkl",
-    "classification:success:context_only:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_success_context_only_gradient_boosting.pkl",
-    "classification:success:context_only:logistic_regression": "artifacts/motion-value-v2-final/models/classification_success_context_only_logistic_regression.pkl",
-    "classification:success:context_plus_motion:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_success_context_plus_motion_gradient_boosting.pkl",
-    "classification:success:context_plus_motion:logistic_regression": "artifacts/motion-value-v2-final/models/classification_success_context_plus_motion_logistic_regression.pkl",
-    "classification:success:full:gradient_boosting": "artifacts/motion-value-v2-final/models/classification_success_full_gradient_boosting.pkl",
-    "classification:success:full:logistic_regression": "artifacts/motion-value-v2-final/models/classification_success_full_logistic_regression.pkl",
-    "regression:epa:context_only:gradient_boosting": "artifacts/motion-value-v2-final/models/regression_epa_context_only_gradient_boosting.pkl",
-    "regression:epa:context_only:ridge_regression": "artifacts/motion-value-v2-final/models/regression_epa_context_only_ridge_regression.pkl",
-    "regression:epa:context_plus_motion:gradient_boosting": "artifacts/motion-value-v2-final/models/regression_epa_context_plus_motion_gradient_boosting.pkl",
-    "regression:epa:context_plus_motion:ridge_regression": "artifacts/motion-value-v2-final/models/regression_epa_context_plus_motion_ridge_regression.pkl",
-    "regression:epa:full:gradient_boosting": "artifacts/motion-value-v2-final/models/regression_epa_full_gradient_boosting.pkl",
-    "regression:epa:full:ridge_regression": "artifacts/motion-value-v2-final/models/regression_epa_full_ridge_regression.pkl"
+    "classification:completion:all": "artifacts/models/classification_completion_full_gradient_boosting.pkl",
+    "classification:explosive:all": "artifacts/models/classification_explosive_context_plus_motion_logistic_regression.pkl",
+    "classification:success:all": "artifacts/models/classification_success_full_logistic_regression.pkl",
+    "regression:epa:all": "artifacts/models/regression_epa_context_only_gradient_boosting.pkl"
   }
 }

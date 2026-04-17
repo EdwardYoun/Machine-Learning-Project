@@ -41,7 +41,7 @@ how much value pre-snap motion adds on NFL passing plays, and when that value is
 Primary ownership:
 
 - `src/pre_snap_motion/data/`
-- `configs/tracking_experiment.yaml`
+- `configs/motion_value_v2_final.yaml`
 - tracking-related documentation
 
 Core tasks:
