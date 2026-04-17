@@ -32,6 +32,8 @@ If you are opening the repo to understand the final project quickly, start here:
 - `configs/motion_value_v2_final.yaml`: final experiment configuration
 - `docs/final_experiment_handoff.md`: slide/report handoff and chart guide
 - `results_summary.md`: high-level final findings
+- `artifacts/README.md`: explanation of the tracked final artifact snapshot
+- `artifacts/metrics/`: GitHub-visible final results snapshot
 - `artifacts/motion-value-v2-final/metrics/proposal_summary.md`: final narrative summary generated from the experiment
 - `artifacts/motion-value-v2-final/metrics/selected_models.csv`: final selected-model table
 - `artifacts/motion-value-v2-final/metrics/motion_effect_overall.csv`: top-line motion-effect results

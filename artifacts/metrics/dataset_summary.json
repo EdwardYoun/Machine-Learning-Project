@@ -5,14 +5,21 @@
     2023,
     2024
   ],
+  "sparse_tracking_threshold": 0.1,
   "target_rates": {
     "completion": 0.5743095885711486,
     "epa": 0.025226336957101855,
     "explosive": 0.08194270871621456,
     "success": 0.4506603935406405
   },
+  "test_ftn_coverage_rate": 1.0,
   "test_rows": 20116,
+  "test_tracking_coverage_rate": 0.0071087691389938356,
+  "test_tracking_rows": 143,
   "total_rows": 40809,
   "tracking_coverage_rate": 0.3491876791884143,
-  "train_rows": 20693
+  "train_ftn_coverage_rate": 1.0,
+  "train_rows": 20693,
+  "train_tracking_coverage_rate": 0.6817281206204997,
+  "train_tracking_rows": 14107
 }
