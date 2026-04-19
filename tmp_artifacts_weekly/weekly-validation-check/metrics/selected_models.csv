@@ -1,0 +1,5 @@
+evaluation_slice,dataset_split,task,target,model_name,feature_set,train_rows,evaluation_rows,n_numeric_features,n_categorical_features,selected_threshold,auroc,log_loss,brier_score,expected_calibration_error,predicted_positive_rate,balanced_accuracy,f1,rmse,mae,selection_metric,selection_split,selection_value
+all,test,classification,completion,logistic_regression,context_plus_motion,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,,balanced_accuracy,validation,1.0
+all,test,classification,explosive,logistic_regression,context_plus_motion,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,,balanced_accuracy,validation,1.0
+all,test,classification,success,logistic_regression,context_plus_motion,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,,balanced_accuracy,validation,1.0
+all,test,regression,epa,ridge_regression,context_plus_motion,36,12,17,26,,,,,,,,,0.0023041474654377824,0.002304147465437783,rmse,validation,0.0038595894666105463

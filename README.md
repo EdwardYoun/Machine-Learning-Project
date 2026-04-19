@@ -30,7 +30,9 @@ ML_Project_Proposal.pdf   Original proposal
 If you are opening the repo to understand the final project quickly, start here:
 
 - `configs/motion_value_v2_final.yaml`: final experiment configuration
+- `configs/motion_value_v2_academic.yaml`: class-oriented rerun config with rolling week-based validation inside 2023
 - `docs/final_experiment_handoff.md`: slide/report handoff and chart guide
+- `docs/academic_experiment_handoff.md`: rerun instructions for the academically stronger split design
 - `results_summary.md`: high-level final findings
 - `artifacts/README.md`: explanation of the tracked final artifact snapshot
 - `artifacts/metrics/`: GitHub-visible final results snapshot
@@ -146,7 +148,9 @@ Important caveat:
 For the final class-project writeup and slide prep, start with:
 
 - final config: `configs/motion_value_v2_final.yaml`
+- academic rerun config: `configs/motion_value_v2_academic.yaml`
 - final artifact summary: `docs/final_experiment_handoff.md`
+- academic rerun summary: `docs/academic_experiment_handoff.md`
 - final narrative summary: `artifacts/motion-value-v2-final/metrics/proposal_summary.md`
 
 The handoff doc points to the exact CSV files to use for charts, the final results worth highlighting, and the limitations that should be stated clearly in the presentation and report.

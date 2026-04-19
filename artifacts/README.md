@@ -11,6 +11,8 @@ This folder is the GitHub-friendly snapshot of the final V2 experiment outputs.
 
 The full local experiment outputs live under `artifacts/motion-value-v2-final/`, but that directory is treated as a local experiment workspace. The files in this top-level `artifacts/` folder are the small set of final results intended to be visible directly in the repository.
 
+For a class-oriented rerun with real validation-based model selection, use `configs/motion_value_v2_academic.yaml`. That workflow writes fresh outputs under `artifacts/motion-value-v2-academic/`.
+
 ## Most useful files
 
 - `artifacts/metrics/proposal_summary.md`

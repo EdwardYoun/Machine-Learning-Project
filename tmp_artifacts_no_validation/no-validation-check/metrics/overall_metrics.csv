@@ -1,0 +1,13 @@
+evaluation_slice,dataset_split,task,target,model_name,feature_set,train_rows,evaluation_rows,n_numeric_features,n_categorical_features,selected_threshold,auroc,log_loss,brier_score,expected_calibration_error,predicted_positive_rate,balanced_accuracy,f1,rmse,mae
+all,test,classification,completion,logistic_regression,context_only,8,8,8,15,0.5,0.75,0.6017931757378896,0.20840063386230917,0.27004448101553197,0.5,0.5,0.5,,
+all,test,classification,completion,logistic_regression,context_plus_motion,8,8,17,26,0.5,1.0,0.05877681119793973,0.0033754710323434848,0.05701663135328379,0.5,1.0,1.0,,
+all,test,classification,completion,logistic_regression,full,8,8,17,26,0.5,1.0,0.05877681119793973,0.0033754710323434848,0.05701663135328379,0.5,1.0,1.0,,
+all,test,classification,explosive,logistic_regression,context_only,8,8,8,15,0.5,0.75,0.6017931757378896,0.20840063386230917,0.27004448101553197,0.5,0.5,0.5,,
+all,test,classification,explosive,logistic_regression,context_plus_motion,8,8,17,26,0.5,1.0,0.05877681119793973,0.0033754710323434848,0.05701663135328379,0.5,1.0,1.0,,
+all,test,classification,explosive,logistic_regression,full,8,8,17,26,0.5,1.0,0.05877681119793973,0.0033754710323434848,0.05701663135328379,0.5,1.0,1.0,,
+all,test,classification,success,logistic_regression,context_only,8,8,8,15,0.5,0.75,0.6017931757378896,0.20840063386230917,0.27004448101553197,0.5,0.5,0.5,,
+all,test,classification,success,logistic_regression,context_plus_motion,8,8,17,26,0.5,1.0,0.05877681119793973,0.0033754710323434848,0.05701663135328379,0.5,1.0,1.0,,
+all,test,classification,success,logistic_regression,full,8,8,17,26,0.5,1.0,0.05877681119793973,0.0033754710323434848,0.05701663135328379,0.5,1.0,1.0,,
+all,test,regression,epa,ridge_regression,context_only,8,8,8,15,,,,,,,,,0.4480480425085563,0.41074971540087857
+all,test,regression,epa,ridge_regression,context_plus_motion,8,8,17,26,,,,,,,,,0.011081528128034741,0.010159032275451077
+all,test,regression,epa,ridge_regression,full,8,8,17,26,,,,,,,,,0.011081528128034741,0.010159032275451077

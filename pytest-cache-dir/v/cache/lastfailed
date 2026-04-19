@@ -1,0 +1,6 @@
+{
+  "tests/test_train.py::test_train_models_runs_end_to_end_on_small_dataset": true,
+  "tests/test_train.py::test_train_models_do_not_backfill_validation_metrics_with_test_scores": true,
+  "tests/test_train.py::test_train_models_use_weekly_validation_folds_for_model_selection": true,
+  "tests/test_train.py::test_pipeline_train_rejects_stale_processed_dataset_missing_motion_flag": true
+}

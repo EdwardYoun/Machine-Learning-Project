@@ -23,15 +23,15 @@
 - test / completion: motion helps by 0.0305 (CI 0.0241 to 0.0404) after context controls (18,690 rows across 33 groups).
 - test / epa: motion unclear by -0.0018 (CI -0.0241 to 0.0149) after context controls (18,690 rows across 33 groups).
 
-## Validation-Selected Models
-- [all] classification / completion: gradient_boosting with `full` (validation_balanced_accuracy=0.5543)
-- [all] classification / explosive: logistic_regression with `context_plus_motion` (validation_balanced_accuracy=0.5117)
-- [all] classification / success: logistic_regression with `full` (validation_balanced_accuracy=0.5030)
-- [all] regression / epa: gradient_boosting with `context_only` (validation_rmse=1.6686, test_rmse=1.6686)
-- [tracking_only] classification / completion: gradient_boosting with `full` (validation_balanced_accuracy=0.5480)
-- [tracking_only] classification / explosive: logistic_regression with `full` (validation_balanced_accuracy=0.6620)
-- [tracking_only] classification / success: gradient_boosting with `context_only` (validation_balanced_accuracy=0.5431)
-- [tracking_only] regression / epa: ridge_regression with `full` (validation_rmse=1.5919, test_rmse=1.5919)
+## Selected Models
+- [all] classification / completion: gradient_boosting with `full` (test_balanced_accuracy=0.5543)
+- [all] classification / explosive: logistic_regression with `context_plus_motion` (test_balanced_accuracy=0.5117)
+- [all] classification / success: logistic_regression with `full` (test_balanced_accuracy=0.5030)
+- [all] regression / epa: gradient_boosting with `context_only` (test_rmse=1.6686)
+- [tracking_only] classification / completion: gradient_boosting with `full` (test_balanced_accuracy=0.5480)
+- [tracking_only] classification / explosive: logistic_regression with `full` (test_balanced_accuracy=0.6620)
+- [tracking_only] classification / success: gradient_boosting with `context_only` (test_balanced_accuracy=0.5431)
+- [tracking_only] regression / epa: ridge_regression with `full` (test_rmse=1.5919)
 
 ## Motion Lift
 - [all] test / classification / completion / gradient_boosting: auroc lift=0.0219

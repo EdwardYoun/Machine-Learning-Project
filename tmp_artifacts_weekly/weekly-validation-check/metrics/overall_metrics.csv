@@ -1,0 +1,13 @@
+evaluation_slice,dataset_split,task,target,model_name,feature_set,train_rows,evaluation_rows,n_numeric_features,n_categorical_features,selected_threshold,auroc,log_loss,brier_score,expected_calibration_error,predicted_positive_rate,balanced_accuracy,f1,rmse,mae
+all,test,classification,completion,logistic_regression,context_only,36,12,8,15,0.7,0.5,0.6931471805599453,0.25,0.0,0.0,0.5,0.0,,
+all,test,classification,completion,logistic_regression,context_plus_motion,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,
+all,test,classification,completion,logistic_regression,full,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,
+all,test,classification,explosive,logistic_regression,context_only,36,12,8,15,0.7,0.5,0.6931471805599453,0.25,0.0,0.0,0.5,0.0,,
+all,test,classification,explosive,logistic_regression,context_plus_motion,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,
+all,test,classification,explosive,logistic_regression,full,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,
+all,test,classification,success,logistic_regression,context_only,36,12,8,15,0.7,0.5,0.6931471805599453,0.25,0.0,0.0,0.5,0.0,,
+all,test,classification,success,logistic_regression,context_plus_motion,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,
+all,test,classification,success,logistic_regression,full,36,12,17,26,0.5,1.0,0.018626218989510446,0.0003405435830856755,0.018453822993777555,0.5,1.0,1.0,,
+all,test,regression,epa,ridge_regression,context_only,36,12,8,15,,,,,,,,,0.5,0.5
+all,test,regression,epa,ridge_regression,context_plus_motion,36,12,17,26,,,,,,,,,0.0023041474654377824,0.002304147465437783
+all,test,regression,epa,ridge_regression,full,36,12,17,26,,,,,,,,,0.0023041474654377824,0.002304147465437783

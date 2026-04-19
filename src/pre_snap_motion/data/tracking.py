@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import numpy as np
@@ -30,6 +31,11 @@ DEFENSIVE_BACK_POSITIONS = {"CB", "FS", "SS", "S", "DB"}
 
 def tracking_features_path(config: ProjectConfig) -> Path:
     return Path(config.paths.raw_dir) / config.tracking.cache_file
+
+
+def tracking_manifest_path(config: ProjectConfig) -> Path:
+    cache_path = tracking_features_path(config)
+    return cache_path.with_name(f"{cache_path.stem}_inputs.json")
 
 
 def infer_nfl_season_from_game_id(game_id: str | int) -> int:
@@ -65,9 +71,16 @@ def tracking_cache_is_stale(config: ProjectConfig) -> bool:
         return False
     if not cache_path.exists():
         return True
+    manifest_path = tracking_manifest_path(config)
+    if not manifest_path.exists():
+        return True
 
-    cache_mtime = cache_path.stat().st_mtime
-    return any(path.stat().st_mtime > cache_mtime for path in input_paths)
+    try:
+        payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError):
+        return True
+
+    return payload.get("inputs") != _tracking_input_snapshot(input_paths)
 
 
 def build_tracking_play_features(config: ProjectConfig) -> Path:
@@ -84,6 +97,10 @@ def build_tracking_play_features(config: ProjectConfig) -> Path:
     output_path = tracking_features_path(config)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     pl.from_pandas(combined).write_parquet(output_path)
+    tracking_manifest_path(config).write_text(
+        json.dumps({"inputs": _tracking_input_snapshot(input_paths)}, indent=2),
+        encoding="utf-8",
+    )
     return output_path
 
 
@@ -136,6 +153,17 @@ def _aggregate_tracking_file(path: Path) -> pd.DataFrame:
         },
     )
     return _aggregate_tracking_frame(frame)
+
+
+def _tracking_input_snapshot(input_paths: list[Path]) -> list[dict[str, str | int]]:
+    return [
+        {
+            "path": str(path.resolve()),
+            "mtime_ns": path.stat().st_mtime_ns,
+            "size_bytes": path.stat().st_size,
+        }
+        for path in input_paths
+    ]
 
 
 def _aggregate_tracking_frame(frame: pd.DataFrame) -> pd.DataFrame:

@@ -1,0 +1,16 @@
+{
+  "models": {
+    "classification:completion:context_only:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_completion_context_only_logistic_regression.pkl",
+    "classification:completion:context_plus_motion:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_completion_context_plus_motion_logistic_regression.pkl",
+    "classification:completion:full:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_completion_full_logistic_regression.pkl",
+    "classification:explosive:context_only:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_explosive_context_only_logistic_regression.pkl",
+    "classification:explosive:context_plus_motion:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_explosive_context_plus_motion_logistic_regression.pkl",
+    "classification:explosive:full:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_explosive_full_logistic_regression.pkl",
+    "classification:success:context_only:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_success_context_only_logistic_regression.pkl",
+    "classification:success:context_plus_motion:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_success_context_plus_motion_logistic_regression.pkl",
+    "classification:success:full:logistic_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\classification_success_full_logistic_regression.pkl",
+    "regression:epa:context_only:ridge_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\regression_epa_context_only_ridge_regression.pkl",
+    "regression:epa:context_plus_motion:ridge_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\regression_epa_context_plus_motion_ridge_regression.pkl",
+    "regression:epa:full:ridge_regression": "tmp_artifacts_weekly\\weekly-validation-check\\models\\regression_epa_full_ridge_regression.pkl"
+  }
+}

@@ -1,0 +1,14 @@
+[
+  "tests/test_config.py::test_load_config_reads_academic_v2_values",
+  "tests/test_config.py::test_load_config_reads_quickstart_values",
+  "tests/test_config.py::test_load_config_reads_v2_experiment_values",
+  "tests/test_splits.py::test_split_by_season_respects_configured_boundaries",
+  "tests/test_splits.py::test_split_frame_builds_rolling_origin_validation",
+  "tests/test_splits.py::test_split_frame_builds_weekly_rolling_origin_validation",
+  "tests/test_train.py::test_model_names_for_target_respects_target_overrides",
+  "tests/test_train.py::test_pipeline_train_rejects_stale_processed_dataset_missing_motion_flag",
+  "tests/test_train.py::test_select_threshold_uses_requested_metric",
+  "tests/test_train.py::test_train_models_do_not_backfill_validation_metrics_with_test_scores",
+  "tests/test_train.py::test_train_models_runs_end_to_end_on_small_dataset",
+  "tests/test_train.py::test_train_models_use_weekly_validation_folds_for_model_selection"
+]

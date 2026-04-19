@@ -1,11 +1,13 @@
 import pandas as pd
 
 from pre_snap_motion.evaluation.reporting import (
+    _bootstrap_effect_interval,
     _effect_direction,
     best_models,
     dataset_summary,
     defensive_reaction_overall,
     motion_effect_overall,
+    proposal_summary_markdown,
 )
 
 
@@ -169,3 +171,51 @@ def test_defensive_reaction_overall_filters_to_tracking_rows() -> None:
 
 def test_effect_direction_is_conservative_when_point_and_interval_disagree() -> None:
     assert _effect_direction(-0.001, 0.002, 0.01) == "unclear"
+
+
+def test_bootstrap_effect_interval_brackets_the_point_estimate() -> None:
+    subgroup_frame = pd.DataFrame(
+        {
+            "motion_mean": [0.10, 0.04, -0.02, 0.03],
+            "no_motion_mean": [0.08, 0.03, -0.01, 0.01],
+            "n_obs": [120, 90, 80, 70],
+        }
+    )
+    effects = subgroup_frame["motion_mean"] - subgroup_frame["no_motion_mean"]
+    point_estimate = float((effects * subgroup_frame["n_obs"]).sum() / subgroup_frame["n_obs"].sum())
+
+    ci_lower, ci_upper = _bootstrap_effect_interval(
+        subgroup_frame=subgroup_frame,
+        confidence_level=0.95,
+        bootstrap_samples=200,
+        random_state=42,
+        point_estimate=point_estimate,
+    )
+
+    assert ci_lower <= point_estimate <= ci_upper
+
+
+def test_proposal_summary_uses_generic_selected_models_heading_without_validation() -> None:
+    summary = proposal_summary_markdown(
+        dataset_summary_payload={},
+        best_models_frame=pd.DataFrame(
+            [
+                {
+                    "dataset_split": "test",
+                    "evaluation_slice": "all",
+                    "task": "classification",
+                    "target": "completion",
+                    "model_name": "gradient_boosting",
+                    "feature_set": "full",
+                    "selection_metric": "balanced_accuracy",
+                    "balanced_accuracy": 0.5543,
+                    "test_balanced_accuracy": 0.5543,
+                }
+            ]
+        ),
+        motion_lift_frame=pd.DataFrame(),
+    )
+
+    assert "## Selected Models" in summary
+    assert "## Validation-Selected Models" not in summary
+    assert "test_balanced_accuracy=0.5543" in summary

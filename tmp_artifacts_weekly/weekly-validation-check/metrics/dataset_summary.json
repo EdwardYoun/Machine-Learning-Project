@@ -1,0 +1,29 @@
+{
+  "ftn_coverage_rate": 1.0,
+  "motion_rate": 0.5,
+  "rolling_min_train_weeks": 3,
+  "rolling_validation_window_weeks": 1,
+  "seasons": [
+    2023,
+    2024
+  ],
+  "sparse_tracking_threshold": 0.25,
+  "split_strategy": "rolling_origin_weeks",
+  "target_rates": {
+    "completion": 0.5,
+    "epa": 0.5,
+    "explosive": 0.5,
+    "success": 0.5
+  },
+  "test_ftn_coverage_rate": 1.0,
+  "test_rows": 12,
+  "test_tracking_coverage_rate": 0.0,
+  "test_tracking_rows": 0,
+  "total_rows": 48,
+  "tracking_coverage_rate": 0.0,
+  "train_ftn_coverage_rate": 1.0,
+  "train_rows": 36,
+  "train_tracking_coverage_rate": 0.0,
+  "train_tracking_rows": 0,
+  "validation_folds": 3
+}

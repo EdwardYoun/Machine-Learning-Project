@@ -1,0 +1,13 @@
+evaluation_slice,task,target,model_name,feature_set,evaluation_rows,validation_folds,auroc,balanced_accuracy,f1,log_loss,brier_score,expected_calibration_error,predicted_positive_rate,rmse,mae,dataset_split,selected_threshold
+all,classification,completion,logistic_regression,context_only,18,3,0.30246913580246915,0.5,0.0,0.7417243711906124,0.27392560290651674,0.14675793250431857,0.0,,,validation,0.7
+all,classification,completion,logistic_regression,context_plus_motion,18,3,1.0,1.0,1.0,0.027319614643755326,0.0007517419820923693,0.026936325975091692,0.5,,,validation,0.5
+all,classification,completion,logistic_regression,full,18,3,1.0,1.0,1.0,0.027319614643755326,0.0007517419820923693,0.026936325975091692,0.5,,,validation,0.5
+all,classification,explosive,logistic_regression,context_only,18,3,0.30246913580246915,0.5,0.0,0.7417243711906124,0.27392560290651674,0.14675793250431857,0.0,,,validation,0.7
+all,classification,explosive,logistic_regression,context_plus_motion,18,3,1.0,1.0,1.0,0.027319614643755326,0.0007517419820923693,0.026936325975091692,0.5,,,validation,0.5
+all,classification,explosive,logistic_regression,full,18,3,1.0,1.0,1.0,0.027319614643755326,0.0007517419820923693,0.026936325975091692,0.5,,,validation,0.5
+all,classification,success,logistic_regression,context_only,18,3,0.30246913580246915,0.5,0.0,0.7417243711906124,0.27392560290651674,0.14675793250431857,0.0,,,validation,0.7
+all,classification,success,logistic_regression,context_plus_motion,18,3,1.0,1.0,1.0,0.027319614643755326,0.0007517419820923693,0.026936325975091692,0.5,,,validation,0.5
+all,classification,success,logistic_regression,full,18,3,1.0,1.0,1.0,0.027319614643755326,0.0007517419820923693,0.026936325975091692,0.5,,,validation,0.5
+all,regression,epa,ridge_regression,context_only,18,3,,,,,,,,0.5255762172178671,0.523425295712368,validation,
+all,regression,epa,ridge_regression,context_plus_motion,18,3,,,,,,,,0.0038595894666105463,0.0038415759987257547,validation,
+all,regression,epa,ridge_regression,full,18,3,,,,,,,,0.0038595894666105463,0.0038415759987257547,validation,

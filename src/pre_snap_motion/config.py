@@ -236,6 +236,8 @@ class SplitConfig:
     validation_seasons: list[int] = field(default_factory=list)
     test_seasons: list[int] = field(default_factory=lambda: [2025])
     rolling_min_train_seasons: int = 2
+    rolling_min_train_weeks: int = 8
+    rolling_validation_window_weeks: int = 1
 
 
 @dataclass(slots=True)
@@ -322,7 +324,7 @@ class ProjectConfig:
     def validate(self) -> None:
         valid_classification_targets = {"success", "explosive", "completion"}
         valid_regression_targets = {"epa"}
-        valid_split_strategies = {"explicit", "rolling_origin"}
+        valid_split_strategies = {"explicit", "rolling_origin", "rolling_origin_weeks"}
         valid_experiment_modes = {"balanced_research", "inference_first", "prediction_first"}
         valid_feature_sets = {"context_only", "context_plus_motion", "full"}
         valid_calibration_methods = {"none", "sigmoid", "isotonic"}
@@ -357,6 +359,10 @@ class ProjectConfig:
             raise ValueError(f"Unknown split strategy: {self.split.strategy}")
         if self.split.rolling_min_train_seasons < 1:
             raise ValueError("rolling_min_train_seasons must be at least 1.")
+        if self.split.rolling_min_train_weeks < 1:
+            raise ValueError("rolling_min_train_weeks must be at least 1.")
+        if self.split.rolling_validation_window_weeks < 1:
+            raise ValueError("rolling_validation_window_weeks must be at least 1.")
         if self.experiment.mode not in valid_experiment_modes:
             raise ValueError(f"Unknown experiment mode: {self.experiment.mode}")
         unknown_feature_sets = set(self.experiment.feature_sets) - valid_feature_sets
@@ -526,6 +532,12 @@ def load_config(path: str | Path) -> ProjectConfig:
             validation_seasons=_value(split_data, "validation_seasons", []),
             test_seasons=_value(split_data, "test_seasons", [2025]),
             rolling_min_train_seasons=_value(split_data, "rolling_min_train_seasons", 2),
+            rolling_min_train_weeks=_value(split_data, "rolling_min_train_weeks", 8),
+            rolling_validation_window_weeks=_value(
+                split_data,
+                "rolling_validation_window_weeks",
+                1,
+            ),
         ),
         models=ModelsConfig(
             classification_models=_value(

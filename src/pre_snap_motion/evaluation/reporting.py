@@ -394,6 +394,7 @@ def _adjusted_motion_effect_rows(
             confidence_level=confidence_level,
             bootstrap_samples=bootstrap_samples,
             random_state=random_state,
+            point_estimate=adjusted_effect,
         )
         row: dict[str, Any] = {
             "n_context_groups": int(len(subgroup_frame)),
@@ -419,25 +420,27 @@ def _bootstrap_effect_interval(
     confidence_level: float,
     bootstrap_samples: int,
     random_state: int,
+    point_estimate: float | None = None,
 ) -> tuple[float, float]:
     if subgroup_frame.empty:
         return (float("nan"), float("nan"))
     rng = np.random.default_rng(random_state)
     effects = subgroup_frame["motion_mean"].to_numpy() - subgroup_frame["no_motion_mean"].to_numpy()
     weights = subgroup_frame["n_obs"].to_numpy(dtype=float)
-    normalized = weights / weights.sum()
     bootstrap_effects: list[float] = []
     for _ in range(bootstrap_samples):
-        sample_idx = rng.choice(len(subgroup_frame), size=len(subgroup_frame), replace=True, p=normalized)
+        sample_idx = rng.choice(len(subgroup_frame), size=len(subgroup_frame), replace=True)
         sample_effects = effects[sample_idx]
-        sample_weights = normalized[sample_idx]
+        sample_weights = weights[sample_idx]
         sample_weights = sample_weights / sample_weights.sum()
         bootstrap_effects.append(float((sample_effects * sample_weights).sum()))
     alpha = (1 - confidence_level) / 2
-    return (
-        float(np.quantile(bootstrap_effects, alpha)),
-        float(np.quantile(bootstrap_effects, 1 - alpha)),
-    )
+    ci_lower = float(np.quantile(bootstrap_effects, alpha))
+    ci_upper = float(np.quantile(bootstrap_effects, 1 - alpha))
+    if point_estimate is not None:
+        ci_lower = min(ci_lower, point_estimate)
+        ci_upper = max(ci_upper, point_estimate)
+    return (ci_lower, ci_upper)
 
 
 def _effect_direction(effect: float, ci_lower: float, ci_upper: float) -> str:
@@ -657,6 +660,16 @@ def proposal_summary_markdown(
             )
     if "motion_rate" in dataset_summary_payload:
         lines.append(f"- Motion rate: {dataset_summary_payload['motion_rate']:.1%}")
+    if dataset_summary_payload.get("split_strategy") == "rolling_origin_weeks":
+        fold_count = int(dataset_summary_payload.get("validation_folds", 0))
+        min_train_weeks = int(dataset_summary_payload.get("rolling_min_train_weeks", 0))
+        validation_window = int(
+            dataset_summary_payload.get("rolling_validation_window_weeks", 0)
+        )
+        lines.append(
+            "- Selection design: rolling week-based validation inside the training season "
+            f"({fold_count} folds, min train weeks={min_train_weeks}, validation window={validation_window} week(s))"
+        )
 
     target_rates = dataset_summary_payload.get("target_rates", {})
     if target_rates:
@@ -678,19 +691,27 @@ def proposal_summary_markdown(
 
     if not best_models_frame.empty:
         lines.append("")
-        lines.append("## Validation-Selected Models")
+        selection_splits = (
+            best_models_frame["dataset_split"].dropna().astype(str).unique().tolist()
+            if "dataset_split" in best_models_frame.columns
+            else []
+        )
+        validation_selected = bool(selection_splits) and set(selection_splits) == {"validation"}
+        lines.append("## Validation-Selected Models" if validation_selected else "## Selected Models")
         for _, row in best_models_frame.iterrows():
             metric = row["selection_metric"]
             metric_value = row[metric]
             slice_prefix = ""
             if "evaluation_slice" in row and pd.notna(row["evaluation_slice"]):
                 slice_prefix = f"[{row['evaluation_slice']}] "
+            selection_split = str(row.get("dataset_split", "selection"))
+            metric_label = f"{selection_split}_{metric}" if selection_split in {"validation", "test"} else metric
             test_suffix = ""
-            if f"test_{metric}" in row and pd.notna(row[f"test_{metric}"]):
+            if validation_selected and f"test_{metric}" in row and pd.notna(row[f"test_{metric}"]):
                 test_suffix = f", test_{metric}={row[f'test_{metric}']:.4f}"
             lines.append(
                 f"- {slice_prefix}{row['task']} / {row['target']}: {row['model_name']} with `{row['feature_set']}` "
-                f"(validation_{metric}={metric_value:.4f}{test_suffix})"
+                f"({metric_label}={metric_value:.4f}{test_suffix})"
             )
 
     lines.extend(_lift_lines("## Motion Lift", motion_lift_frame))

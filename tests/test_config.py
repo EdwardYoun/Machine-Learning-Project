@@ -48,3 +48,14 @@ def test_load_config_reads_v2_experiment_values() -> None:
         "success",
         "epa",
     ]
+
+
+def test_load_config_reads_academic_v2_values() -> None:
+    config = load_config(Path("configs/motion_value_v2_academic.yaml"))
+
+    assert config.project_name == "motion-value-v2-academic"
+    assert config.split.strategy == "rolling_origin_weeks"
+    assert config.split.train_seasons == [2023]
+    assert config.split.test_seasons == [2024]
+    assert config.split.rolling_min_train_weeks == 8
+    assert config.split.rolling_validation_window_weeks == 1

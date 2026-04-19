@@ -45,5 +45,7 @@ The script writes a full chart set to `reports/figures/`:
 ## Notes
 
 - The plotting script expects the final snapshot files currently stored in `artifacts/metrics/`.
+- For the academic rerun, point the same script at `artifacts/motion-value-v2-academic/metrics/` and write to a separate output folder such as `reports/figures_academic/`.
 - The defensive reaction CSV is currently empty, so there is no dedicated defensive reaction plot in this first pass.
+- `07_validation_vs_test_selected_models.png` only appears when the metrics contain a genuine validation-selected score. That chart is intentionally omitted for test-selected snapshots.
 - If newer metrics are generated later, rerun the same command and the figures will refresh automatically.
